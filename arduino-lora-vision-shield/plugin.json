@@ -1,7 +1,7 @@
 {
   "name": "arduino_lora_vision_shield",
   "version": "1.0.0",
-  "description": "The Arduino Portenta Vision Shield LoRa® consists of a 320x320 pixels camera sensor and two onboard microphones for directional sound detection. It allows you to run embedded computer vision applications. The Vision Shield LoRa® has been designed to work ",
+  "description": "The Arduino Portenta Vision Shield LoRa® includes a 320×320 camera and dual microphones for embedded vision and sound detection applications.",
   "author": "Thinger.io",
   "license": "MIT",
   "repository": {
@@ -11,15 +11,15 @@
   },
   "metadata": {
     "name": "Arduino LORA-VISION-SHIELD",
-    "description": "The Arduino Portenta Vision Shield LoRa® consists of a 320x320 pixels camera sensor and two onboard microphones for directional sound detection. It allows you to run embedded computer vision applications. The Vision Shield LoRa® has been designed to work ",
-    "image": "assets/camera_shield1.png",
+    "description": "The Arduino Portenta Vision Shield LoRa® includes a 320×320 camera and dual microphones for embedded vision and sound detection applications.",
+    "image": "assets/visionshield.png",
     "category": "devices",
     "vendor": "arduino"
   },
   "resources": {
     "products": [
       {
-        "description": "The Arduino Portenta Vision Shield LoRa® consists of a 320x320 pixels camera sensor and two onboard microphones for directional sound detection. It allows you to run embedded computer vision applications. The Vision Shield LoRa® has been designed to work ",
+        "description": "The Arduino Portenta Vision Shield LoRa® includes a 320×320 camera and dual microphones for embedded vision and sound detection applications.",
         "enabled": true,
         "name": "Arduino LORA-VISION-SHIELD",
         "product": "arduino_lora_vision_shield",
