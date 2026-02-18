@@ -1,7 +1,7 @@
 {
   "name": "arduino_mkr_wan_1310",
   "version": "1.0.0",
-  "description": "The Arduino MKR WAN 1310 is a development board that provides a practical and cost-effective solution to add LoRaWAN® connectivity for projects requiring long-range, low-power wireless communication. Sensors and actuators can be connected to the board thr",
+  "description": "The Arduino MKR WAN 1310 is a development board that adds LoRaWAN connectivity to projects requiring long-range, low-power wireless communication. It allows easy connection of sensors and actuators.",
   "author": "Thinger.io",
   "license": "MIT",
   "repository": {
@@ -11,15 +11,15 @@
   },
   "metadata": {
     "name": "Arduino MKR-WAN-1310",
-    "description": "The Arduino MKR WAN 1310 is a development board that provides a practical and cost-effective solution to add LoRaWAN® connectivity for projects requiring long-range, low-power wireless communication. Sensors and actuators can be connected to the board thr",
-    "image": "assets/mkrwan1310_1.png",
+    "description": "The Arduino MKR WAN 1310 is a development board that adds LoRaWAN connectivity to projects requiring long-range, low-power wireless communication. It allows easy connection of sensors and actuators.",
+    "image": "assets/mkrwan1310.png",
     "category": "devices",
     "vendor": "arduino"
   },
   "resources": {
     "products": [
       {
-        "description": "The Arduino MKR WAN 1310 is a development board that provides a practical and cost-effective solution to add LoRaWAN® connectivity for projects requiring long-range, low-power wireless communication. Sensors and actuators can be connected to the board thr",
+        "description": "The Arduino MKR WAN 1310 is a development board that adds LoRaWAN connectivity to projects requiring long-range, low-power wireless communication. It allows easy connection of sensors and actuators.",
         "enabled": true,
         "name": "Arduino MKR-WAN-1310",
         "product": "arduino_mkr_wan_1310",
