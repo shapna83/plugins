@@ -12,7 +12,7 @@
   "metadata": {
     "name": "Elspina EM-ELST01",
     "description": "Device to capture state changes through its accelerometer and switch sensor.",
-    "image": "assets/em-elst01-e.jpg",
+    "image": "assets/em-elst01-e.png",
     "category": "devices",
     "vendor": "elspina"
   },
