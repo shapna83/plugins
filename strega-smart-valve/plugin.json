@@ -1,0 +1,664 @@
+{
+  "name": "strega_smart_valve",
+  "version": "1.0.0",
+  "description": "The STREGA LoRaWAN wireless smart-valve has an embedded temperature and humidity sensor, tamper detection sensor, and wire-cut detection sensor. It also accepts external analog, digital, and leak detection sensor inputs. The valve may also be configured f",
+  "author": "Thinger.io",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/thinger-io/plugins.git",
+    "directory": "strega-smart-valve"
+  },
+  "metadata": {
+    "name": "Strega SMART-VALVE",
+    "description": "The STREGA LoRaWAN wireless smart-valve has an embedded temperature and humidity sensor, tamper detection sensor, and wire-cut detection sensor. It also accepts external analog, digital, and leak detection sensor inputs. The valve may also be configured f",
+    "image": "assets/smart-valve.png",
+    "category": "devices",
+    "vendor": "strega"
+  },
+  "resources": {
+    "products": [
+      {
+        "description": "The STREGA LoRaWAN wireless smart-valve has an embedded temperature and humidity sensor, tamper detection sensor, and wire-cut detection sensor. It also accepts external analog, digital, and leak detection sensor inputs. The valve may also be configured f",
+        "enabled": true,
+        "name": "Strega SMART-VALVE",
+        "product": "strega_smart_valve",
+        "profile": {
+          "api": {
+            "downlink": {
+              "enabled": true,
+              "handle_connectivity": false,
+              "request": {
+                "data": {
+                  "path": "/downlink",
+                  "payload": "{\n    \"data\"    : \"{{payload.data=\"\"}}\",\n    \"port\"    :  {{payload.port=85}},\n    \"priority\":  {{payload.priority=3}},\n    \"confirmed\" :  {{payload.confirmed=false}},\n    \"uplink\"  :  {{property.uplink}} \n}",
+                  "payload_function": "",
+                  "payload_type": "",
+                  "plugin": "{{property.uplink.source}}",
+                  "target": "plugin_endpoint"
+                }
+              }
+            },
+            "uplink": {
+              "device_id_resolver": "getId",
+              "enabled": true,
+              "handle_connectivity": true,
+              "request": {
+                "data": {
+                  "payload": "{{payload}}",
+                  "payload_function": "",
+                  "payload_type": "source_payload",
+                  "resource_stream": "uplink",
+                  "target": "resource_stream"
+                }
+              }
+            }
+          },
+          "autoprovisions": {
+            "device_autoprovisioning": {
+              "config": {
+                "mode": "pattern",
+                "pattern": "strega-.*"
+              },
+              "enabled": true
+            }
+          },
+          "buckets": {
+            "strega_smart_valve_data": {
+              "backend": "mongodb",
+              "data": {
+                "payload": "{{payload}}",
+                "payload_function": "decodeThingerUplink",
+                "payload_type": "source_payload",
+                "resource": "uplink",
+                "source": "resource",
+                "update": "events"
+              },
+              "enabled": true,
+              "retention": {
+                "period": 6,
+                "unit": "months"
+              },
+              "tags": []
+            }
+          },
+          "code": {
+            "code": "function decodeThingerUplink(thingerData) {\n    // 0. If data has already been decoded, we will return it\n    if (thingerData.decodedPayload) return thingerData.decodedPayload;\n    \n    // 1. Extract and Validate Input\n    // We need 'payload' (hex string) and 'fPort' (integer)\n    const hexPayload = thingerData.payload || \"\";\n    const port = thingerData.fPort || 1;\n\n    // 2. Convert Hex String to Byte Array\n    const bytes = [];\n    for (let i = 0; i < hexPayload.length; i += 2) {\n        bytes.push(parseInt(hexPayload.substr(i, 2), 16));\n    }\n\n    // 3. Dynamic Function Detection and Execution\n    \n    // CASE A: (The Things Stack v3)\n    if (typeof decodeUplink === 'function') {\n        try {\n            const input = {\n                bytes: bytes,\n                fPort: port\n            };\n            var result = decodeUplink(input);\n            \n            if (result.data) return result.data;\n\n            return result; \n        } catch (e) {\n            console.error(\"Error inside decodeUplink:\", e);\n            throw e;\n        }\n    }\n\n    // CASE B: Legacy TTN (v2)\n    else if (typeof Decoder === 'function') {\n        try {\n            return Decoder(bytes, port);\n        } catch (e) {\n            console.error(\"Error inside Decoder:\", e);\n            throw e;\n        }\n    }\n\n    // CASE C: No decoder found\n    else {\n        throw new Error(\"No compatible TTN decoder function (decodeUplink or Decoder) found in scope.\");\n    }\n}\n\n\n// TTN decoder\nfunction decodeUplink(input) {\r\n  var ports = input.fPort;\r\n  var bytes = input.bytes;\r\n  var byte  = arrayBufferToBase64(input.bytes);\r\n  var v4    = base64ToHex(byte);\r\n  var v4_1  = v4.substr(10,2);\r\n  var v4_2  = v4.substr(0,2);\r\n  var v4_3  = v4.substr(0,1);\r\n  var v4_4  = v4.substr(10,2);\r\n  var v4_5  = v4.substr(10,2);\r\n  var v4_10 = v4.substr(0,2);\r\n  var length= v4.length;\r\n  var battery; var Tamper; var Valve; var status; var Cable; var conf_p;var conf_s; var unit1; var time1;\r\n  var unit2; var time2; var temperature; var hygrometry; var DI_0; var DI_1; var Leakage; var Fraud;\r\n  var clas; var power; var radio; var ADR; var DR; var SF; var T_H; var temp; var box_temp; var hum;\r\n  var box_hum; var analog; var counter; var msg; var C; var V; var C_A; var msg1; var st; var st1; var st2; var st_0; var st_1;\r\n  var st_2; var counter_A; var analog_A;  var ack_t; var v_t;\r\n  // Battery operated V3 & V4 & Class A with full payload (Tem,Hum,Counter & Analog)\r\n  if (v4_3 == \"3\"){\r\n  msg          = String.fromCharCode.apply(null, bytes);\r\n  st2          = hex2bin(v4_2);\r\n  clas         = st2.substr(0,1);\r\n  power        = st2.substr(1,1);\r\n  var bat      = msg.substr(0,4);\r\n  battery      = Math.round((bat-2000)/16);\r\n  st_0         = v4.substr(8,2);\r\n  st_1         = st_0.substr(0,1)-3; \r\n  st_2         = st_0.substr(1,1);\r\n  st           = st_1+st_2;\r\n  st1          = hex2bin(st);\r\n  status       = pad(st1,8);\r\n  v_t          = status.substr(6,2);\r\n  Valve        = status.substr(7,1);\r\n  Tamper       = status.substr(6,1);\r\n  Cable        = status.substr(5,1);\r\n  DI_0         = status.substr(4,1);\r\n  DI_1         = status.substr(3,1);\r\n  Leakage      = status.substr(2,1);\r\n  Fraud        = status.substr(1,1);}\r\n  \r\n  // Externally power V4 & Class A with full payload (Tem,Hum,Counter & Analog)\r\n  if (v4_3 == \"7\" || v4_3 == \"F\" || v4_3 == \"f\"){\r\n  msg          = String.fromCharCode.apply(1, bytes);\r\n  st2          = hex2bin(v4_2);\r\n  clas         = st2.substr(0,1);\r\n  power        = st2.substr(1,1);\r\n  st_0         = v4.substr(8,2);\r\n  st_1         = st_0.substr(0,1)-3; \r\n  st_2         = st_0.substr(1,1);\r\n  st           = st_1+st_2;\r\n  st1          = hex2bin(st);\r\n  status       = pad(st1,8);\r\n  v_t          = status.substr(6,2);\r\n  Valve        = status.substr(7,1);\r\n  Tamper       = status.substr(6,1);\r\n  Cable        = status.substr(5,1);\r\n  DI_0         = status.substr(4,1);\r\n  DI_1         = status.substr(3,1);\r\n  Leakage      = status.substr(2,1);\r\n  Fraud        = status.substr(1,1);}\r\n  \r\n  // Battery operated V4 & Class variation with full payload (Tem,Hum,Counter & Analog)\r\n  if (v4_3 == \"B\" || v4_3 == \"b\"){\r\n  msg          = String.fromCharCode.apply(1, bytes);\r\n  st2          = hex2bin(v4_2);\r\n  clas         = st2.substr(0,1);\r\n  power        = st2.substr(1,1);\r\n  var b        = v4.substr(1,1);\r\n  var b1       = msg.substr(1,3);\r\n  var bat1     = b.concat(b1);\r\n  battery      = Math.round((bat1-2000)/16);\r\n  st_0         = v4.substr(8,2);\r\n  st_1         = st_0.substr(0,1)-3; \r\n  st_2         = st_0.substr(1,1);\r\n  st           = st_1+st_2;\r\n  st1          = hex2bin(st);\r\n  status       = pad(st1,8);\r\n  v_t          = status.substr(6,2);\r\n  Valve        = status.substr(7,1);\r\n  Tamper       = status.substr(6,1);\r\n  Cable        = status.substr(5,1);\r\n  DI_0         = status.substr(4,1);\r\n  DI_1         = status.substr(3,1);\r\n  Leakage      = status.substr(2,1);\r\n  Fraud        = status.substr(1,1);} \r\n  \r\n   //condition for payload with temp, hum, counter & analog value\r\n  if (v4_1 == \"23\"){\r\n  T_H          = v4.substr(12,8);\r\n  temp         = T_H.substr(0,4);\r\n  box_temp     = parseInt((temp), 16);\r\n  temperature  = (((box_temp/65536)*165)-40);\r\n  hum          = T_H.substr(4,8);\r\n  box_hum      = parseInt((hum), 16);\r\n  hygrometry   = ((box_hum/65536)*100);\r\n  C_A          = v4.substr(20,50);\r\n  msg1         = hex2a(C_A);\r\n  C            = msg1.search(\"C\");\r\n  if (C !=\"-1\"){\r\n  counter      = parseInt(msg1.substr(C+1,6),16);}\r\n  V            = msg1.search(\"V\");\r\n  if (V !=\"-1\"){\r\n  analog       = (parseInt(msg1.substr(V+1,4),16))/1000;}}\r\n  else{\r\n  C_A          = v4.substr(10,50);\r\n  msg1         = hex2a(C_A);\r\n  C            = msg1.search(\"C\");\r\n  if (C !=\"-1\"){\r\n  counter      = parseInt(msg1.substr(C+1,6),16);}\r\n  V            = msg1.search(\"V\");\r\n  if (V !=\"-1\"){\r\n  analog       = (parseInt(msg1.substr(V+1,4),16))/1000;}}\r\n\r\n  // condition for ACK payload\r\n  if (v4_1 == \"40\"){\r\n  msg1         = hex2a(v4.substr(10,100));\r\n  conf_p       = parseInt(msg1.substr(1,2), 16);\r\n  if (conf_p == \"9\"){ack_t=\"Class Setting Ack\"}\r\n  if (conf_p == \"10\"){ack_t=\"Radio Setting Ack\"}\r\n  if (conf_p == \"11\"){ack_t=\"Uplink Frequency Ack\"}\r\n  if (conf_p == \"12\"){ack_t=\"Time Synchronization Ack\"}\r\n  if (conf_p == \"13\"){ack_t=\"Time Synchronization Request Ack\"}\r\n  if (conf_p == \"14\"||conf_p == \"15\"||conf_p == \"16\"||conf_p == \"17\"||conf_p == \"18\"||conf_p == \"19\"||conf_p == \"20\"){ack_t=\"Schedulers Setting Ack\"}\r\n  if (conf_p == \"21\"){ack_t=\"Schedulers Inhibition Ack\"}\r\n  if (conf_p == \"22\"){ack_t=\"Magnet Control Ack\"}\r\n  if (conf_p == \"10\"){\r\n  radio        = pad(hex2bin(msg1.substr(3,2)),8);\r\n  ADR          = parseInt(radio.substr(0,1),2);\r\n  DR           = parseInt(radio.substr(1,3),2);\r\n  SF           = parseInt(radio.substr(4,4),2);}\r\n  if (conf_p == \"11\"){\r\n    var ulfreqLe = msg1.length;\r\n    unit1        = (msg1.substr(ulfreqLe-8,2)) == \"80\"? 1:0;\r\n    time1        = parseInt(msg1.substr(ulfreqLe-6,2),16);\r\n    unit2        = (msg1.substr(ulfreqLe-4,2)) == \"80\"? 1:0;\r\n    time2        = parseInt(msg1.substr(ulfreqLe-2,2),16);}\r\n    else{conf_s  = msg1.substr(3,2);}}\r\n    \r\n  // Counter and Analog Ack frame\r\n  if (v4_10 == \"40\"){\r\n  msg1         = hex2a(v4.substr(0,100));\r\n  conf_p       = parseInt(msg1.substr(1,2), 16);\r\n  if (conf_p == 23){\r\n  ack_t        = \"Set Counter Value Ack\";\r\n  counter_A    = parseInt(msg1.substr(3,6), 16);}\r\n  if (conf_p == 24){\r\n  ack_t        = \"Counter Value Ack\";\r\n  counter_A    = parseInt(msg1.substr(3,6), 16);}\r\n  if (conf_p == 25){\r\n  ack_t        = \"Analog value Ack\";\r\n  analog_A     = (parseInt(msg1.substr(3,4), 16))/1000;}}\r\n\r\nfunction pad(num, len) { \r\n    return (\"00000000\" + num).substr(-len);}\r\n  \r\nfunction roundToTwo(num) {    \r\n    return +(Math.round(num + \"e+2\")  + \"e-2\");}\r\n  \r\nfunction dec_to_bho (n, base) {\r\n     if (n < 0) {n = 0xFFFFFFFF + n + 1;} \r\nswitch (base){  \r\ncase 'B':  \r\nreturn parseInt(n, 10).toString(2);\r\nbreak;  \r\ncase 'H':  \r\nreturn parseInt(n, 10).toString(16);\r\nbreak;  \r\ncase 'O':  \r\nreturn parseInt(n, 10).toString(8);\r\nbreak;  \r\ndefault:  \r\nreturn(\"Wrong input.........\");}}\r\n\r\nfunction ascii_to_hexa(str)\r\n  {var arr1 = [];\r\n   for (var n = 0, l = str.length; n < l; n ++) {\r\n  var hex = Number(str.charCodeAt(n)).toString(16);\r\n  arr1.push(hex);}\r\n  return arr1.join('');}\r\n\r\nfunction hex2bin(hex){\r\n    return (\"00000000\" + (parseInt(hex, 16)).toString(2)).substr(-8);}\r\n\r\nfunction hex2a(hexx) {\r\n    var hex = hexx.toString();//force conversion\r\n    var str = '';\r\n    for (var i = 0; (i < hex.length && hex.substr(i, 2) !== '00'); i += 2)\r\n        str += String.fromCharCode(parseInt(hex.substr(i, 2), 16));\r\n    return str;}\r\n\r\nfunction atob(base64) {\r\n    var tableStr = \"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/\";\r\n    var table = tableStr.split(\"\");\r\n    if (/(=[^=]+|={3,})$/.test(base64)) throw new Error(\"String contains an invalid character\");\r\n    base64 = base64.replace(/=/g, \"\");\r\n    var n = base64.length & 3;\r\n    if (n === 1) throw new Error(\"String contains an invalid character\");\r\n    for (var i = 0, j = 0, len = base64.length / 4, bin = []; i < len; ++i) {\r\n      var a = tableStr.indexOf(base64[j++] || \"A\"), b = tableStr.indexOf(base64[j++] || \"A\");\r\n      var c = tableStr.indexOf(base64[j++] || \"A\"), d = tableStr.indexOf(base64[j++] || \"A\");\r\n      if ((a | b | c | d) < 0) throw new Error(\"String contains an invalid character\");\r\n      bin[bin.length] = ((a << 2) | (b >> 4)) & 255;\r\n      bin[bin.length] = ((b << 4) | (c >> 2)) & 255;\r\n      bin[bin.length] = ((c << 6) | d) & 255;}\r\n    return String.fromCharCode.apply(null, bin).substr(0, bin.length + n - 4);}\r\n    \r\nfunction btoa(bin) {\r\n    var tableStr = \"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/\";\r\n    var table = tableStr.split(\"\");\r\n    for (var i = 0, j = 0, len = bin.length / 3, base64 = []; i < len; ++i) {\r\n      var a = bin.charCodeAt(j++), b = bin.charCodeAt(j++), c = bin.charCodeAt(j++);\r\n      if ((a | b | c) > 255) throw new Error(\"String contains an invalid character\");\r\n      base64[base64.length] = table[a >> 2] + table[((a << 4) & 63) | (b >> 4)] +\r\n                              (isNaN(b) ? \"=\" : table[((b << 2) & 63) | (c >> 6)]) +\r\n                              (isNaN(b + c) ? \"=\" : table[c & 63]);}\r\n    return base64.join(\"\");}\r\n    \r\nfunction arrayBufferToBase64( buffer ) {\r\n    var binary = '';\r\n    var bytes = new Uint8Array( buffer );\r\n    var len = bytes.byteLength;\r\n    for (var i = 0; i < len; i++) {\r\n        binary += String.fromCharCode( bytes[ i ] );}\r\n    return btoa( binary );}\r\n\r\nfunction base64ToHex(str) {\r\n  var raw = atob(str);\r\n  var result = '';\r\n  for (var i = 0; i < raw.length; i++) {\r\n    var hex = raw.charCodeAt(i).toString(16);\r\n    result += (hex.length === 2 ? hex : '0' + hex);\r\n  }return result.toUpperCase();}\r\n\r\nif (v4_1===\"40\" || v4_10 === \"40\"){\r\n // Class type ack, Radio config ack, Uplink freq ack, Time sync ack, Schedulers ack, Schedulers status ack, Magnet status ack, Counter value retrieval and counter value setting ack,Analog value retrieval\r\n    return {\r\n      data: {\r\n      Bat : battery,\r\n      Actuator   : Valve,\r\n      Tamper  : Tamper,\r\n      Cable   : Cable,\r\n      DI0    : DI_0,\r\n      DI1    : DI_1,\r\n      Leak : Leakage,\r\n      Fraud   : Fraud,\r\n      Class   : clas,\r\n      Power   : power,\r\n      vt     : v_t,\r\n      ADR     : ADR,\r\n      DR      : DR,\r\n      SF      : SF,\r\n      Unit1   : unit1 ,\r\n      Time1   : time1,\r\n      Unit2   : unit2,\r\n      Time2   : time2,\r\n      ackPort   : conf_p,\r\n      ackValue : conf_s || counter_A || analog_A,\r\n      ackType   : ack_t,}};}\r\n  \r\n   // Periodic uplink\r\n  if(v4_1===\"23\" || v4_4===\"43\" || v4_4===\"56\" || length==10){\r\n     return {\r\n      data: {\r\n      Bat : battery,\r\n      Actuator   : Valve,\r\n      Tamper  : Tamper,\r\n      Cable   : Cable,\r\n      DI0    : DI_0,\r\n      DI1    : DI_1,\r\n      Leak : Leakage,\r\n      Fraud   : Fraud,\r\n      Class   : clas,\r\n      Power   : power,\r\n      vt     : v_t,\r\n      counterValue : counter|| \"null\",\r\n      Ana : analog || \"null\",\r\n      Temp   : roundToTwo(temperature) || \"null\",\r\n      Hygro   : roundToTwo(hygrometry) || \"null\",\r\n     }};}}\r\n\r\n// Encoder for TTI updated on 24th Jan 2021\r\nfunction encodeDownlink(input) {\r\n  function pad0(num, len) { \r\n  return (\"30\" + num).substr(-len);}\r\n  function pad(num, len) {\r\n  return (\"00\" + num).substr(-len);}\r\n  function pad1(num, len) {\r\n  return (\"000\" + num).substr(-len);}\r\n  function pad2(num, len) {\r\n  return (\"0000\" + num).substr(-len);}\r\n  function pad3(num, len) {\r\n  return (\"000000000000000000000000\" + num).substr(-len);}\r\n  function dec_to_bho (n, base) {\r\n  if (n < 0) {\r\n  n = 0xFFFFFFFF + n + 1;}\r\n switch (base){\r\n case 'B':\r\n return parseInt(n, 10).toString(2);\r\n break;\r\n case 'H':\r\n return parseInt(n, 10).toString(16);\r\n break;\r\n case 'O':\r\n return parseInt(n, 10).toString(8);\r\n break;\r\n default:\r\n return(\"Wrong input.........\");}}\r\n  var bytes = [];\r\n  var ne =[];\r\n  var d1 = new Date();\r\n  var targetTime = new Date(d1);\r\n  // the following line describe the exact time at your location that maybe different from the time of the LNS. Set the number of hours (+/-) according to your time zone compared to GMT\r\n  var timeZoneFromDB = +4.00; //time zone value from database\r\n  //convert the offset to milliseconds, add to targetTime, and make a new Date\r\n  var tzDifference = timeZoneFromDB * 60 + targetTime.getTimezoneOffset();\r\n  var offsetTime = new Date(targetTime.getTime() + tzDifference * 60 * 1000);\r\n  var d = offsetTime;\r\n  var port = input.data.fPort;\r\n  var Schl_on = 10;\r\n  var Schl_off = 00;\r\n  var Schl_m = 0;\r\n // open and close command, Changing the class, Time Synchronization Request, Schedulers status setting, Magnetic control, Counter value retrieval, Analog value retrieval\r\n  if (port == 1 || port == 9 || port == 13 || port == 21 || port == 22 || port == 24 || port == 25 || port == 26) {\r\n  bytes[0] = input.data.payload;\r\n  bytes[1] = 48;\r\n  ne[0]    = bytes[0]+(+bytes[1]);\r\n  return {\r\n     bytes: ne,\r\n  }}\r\n // Time Controller open/close\r\n if(port == 2) {\r\n  if (input.data.status == 20){ bytes[0] = 32;}\r\n  if (input.data.status == 21){ bytes[0] = 33;}\r\n  if (input.data.status == 40){ bytes[0] = 64;}\r\n  if (input.data.status == 41){ bytes[0] = 65;}\r\n  if (input.data.status == 80){ bytes[0] = 128;}\r\n  if (input.data.status == 81){ bytes[0] = 129;}\r\n  bytes[1] = input.data.time;\r\n   return {\r\n      bytes:bytes,\r\n   }}\r\n // Radio setting\r\n  if (port == 10){\r\n   var ADR   = dec_to_bho(input.data.ADR,'B');\r\n   var DR    = pad1(dec_to_bho(input.data.DR,'B'),3);\r\n   var SF    = pad2(dec_to_bho(input.data.SF,'B'),4);\r\n   var radio = parseInt((ADR+DR+SF),2);\r\n   bytes[0]  = radio;\r\n   return {\r\n     bytes:bytes,\r\n  }}\r\n // UL frequency time\r\n  if (port == 11){\r\n  if (input.data.unit1==1){\r\n  bytes[0] = 128;}\r\n  else{\r\n  bytes[0] = 0;}\r\n  bytes[1] = input.data.time1;\r\n  if (input.data.unit2==1){\r\n  bytes[2] = 128;}\r\n  else{\r\n  bytes[2] = 0;}\r\n  bytes[3] = input.data.time2;\r\n  return {\r\n     bytes:bytes,\r\n  }}\r\n //Time Synchronization \r\n  if (port == 12){\r\n   var hours = d.getHours();\r\n   var h     = pad(hours,2);\r\n   bytes[0]  = parseInt(h.substr(0,1));\r\n   bytes[1]  = parseInt(h.substr(1,1));\r\n   var mins  = d.getMinutes();\r\n   var m     = pad(mins,2);\r\n   bytes[2]  = parseInt(m.substr(0,1));\r\n   bytes[3]  = parseInt(m.substr(1,1));\r\n   var sec   = d.getSeconds();\r\n   var s     = pad(sec,2);\r\n   bytes[4]  = parseInt(s.substr(0,1));\r\n   bytes[5]  = parseInt(s.substr(1,1));\r\n   var day   = d.getDay();\r\n   var d1    = pad(day,2);\r\n   bytes[6]  = parseInt(d1.substr(0,1));\r\n   bytes[7]  = parseInt(d1.substr(1,1));\r\n   var date  = d.getDate();\r\n   var d2    = pad(date,2);\r\n   bytes[8]  = parseInt(d2.substr(0,1));\r\n   bytes[9]  = parseInt(d2.substr(1,1));\r\n   var month = d.getMonth()+1;\r\n   var m1    = pad(month,2);\r\n   bytes[10] = parseInt(m1.substr(0,1));\r\n   bytes[11] = parseInt(m1.substr(1,1));\r\n   var year  = d.getFullYear().toString().substr(2, 2);\r\n   var y     = pad(year,2);\r\n   bytes[12] = parseInt(y.substr(0,1));\r\n   bytes[13] = parseInt(y.substr(1,1));\r\n   return {\r\n     bytes:bytes,\r\n  }}\r\n \r\n // Schedulers setting\r\n  if (port==14 || port==15 || port==16 || port==17 || port==18 || port==19 || port==20) {\r\n  bytes[0] = 255;\r\n  if (input.data.schl1h_on==\"None\" || input.data.schl1h_on==255){\r\n    bytes[1] = 255;}\r\n    else{\r\n  var a = parseInt(input.data.schl1h_on);\r\n  var b = pad(a,2);\r\n  var c = b.substr(0,1);\r\n  var d = b.substr(1,1);\r\n  var e = pad(dec_to_bho (c,'B'),2);\r\n  var f = pad2(dec_to_bho (d,'B'),4);\r\n  var g = parseInt((Schl_on+e+f),2);\r\n  bytes[1] = g;}\r\n  if (input.data.schl1m_on==\"None\" || input.data.schl1m_on==255){\r\n    bytes[2] = 255;}\r\n    else{\r\n  var a1 = parseInt(input.data.schl1m_on);\r\n  var b1 = pad(a1,2);\r\n  var c1 = b1.substr(0,1);\r\n  var d1 = b1.substr(1,1);\r\n  var e1 = pad1(dec_to_bho (c1,'B'),3);\r\n  var f1 = pad2(dec_to_bho (d1,'B'),4);\r\n  var g1 = parseInt((Schl_m+e1+f1),2);\r\n  bytes[2] = g1;}\r\n  bytes[3] = 255;\r\n  if (input.data.schl1h_off==\"None\" || input.data.schl1h_off==255){\r\n    bytes[4] = 255;}\r\n    else{\r\n  var a2 = parseInt(input.data.schl1h_off);\r\n  var b2 = pad(a2,2);\r\n  var c2 = b2.substr(0,1);\r\n  var d2 = b2.substr(1,1);\r\n  var e2 = pad(dec_to_bho (c2,'B'),2);\r\n  var f2 = pad2(dec_to_bho (d2,'B'),4);\r\n  var g2 = parseInt((Schl_off+e2+f2),2);\r\n  bytes[4] = g2;}\r\n  if (input.data.schl1m_off==\"None\" || input.data.schl1m_off==255){\r\n    bytes[5] = 255;}\r\n    else{\r\n  var a3 = parseInt(input.data.schl1m_off);\r\n  var b3 = pad(a3,2);\r\n  var c3 = b3.substr(0,1);\r\n  var d3 = b3.substr(1,1);\r\n  var e3 = pad1(dec_to_bho (c3,'B'),3);\r\n  var f3 = pad2(dec_to_bho (d3,'B'),4);\r\n  var g3 = parseInt((Schl_m+e3+f3),2);\r\n  bytes[5] = g3;}\r\n  bytes[6] = 255;\r\n  if (input.data.schl2h_on==\"None\" || input.data.schl2h_on==255){\r\n    bytes[7] = 255;}\r\n    else{\r\n  var a4 = parseInt(input.data.schl2h_on);\r\n  var b4 = pad(a4,2);\r\n  var c4 = b4.substr(0,1);\r\n  var d4 = b4.substr(1,1);\r\n  var e4 = pad(dec_to_bho (c4,'B'),2);\r\n  var f4 = pad2(dec_to_bho (d4,'B'),4);\r\n  var g4 = parseInt((Schl_on+e4+f4),2);\r\n  bytes[7] = g4;}\r\n  if (input.data.schl2m_on==\"None\" || input.data.schl2m_on==255){\r\n    bytes[8] = 255;}\r\n    else{\r\n  var a5 = parseInt(input.data.schl2m_on);\r\n  var b5 = pad(a5,2);\r\n  var c5 = b5.substr(0,1);\r\n  var d5 = b5.substr(1,1);\r\n  var e5 = pad1(dec_to_bho (c5,'B'),3);\r\n  var f5 = pad2(dec_to_bho (d5,'B'),4);\r\n  var g5 = parseInt((Schl_m+e5+f5),2);\r\n  bytes[8] = g5;}\r\n  bytes[9] = 255;\r\n  if (input.data.schl2h_off==\"None\" || input.data.schl2h_off==255){\r\n    bytes[10] = 255;}\r\n    else{\r\n  var a6 = parseInt(input.data.schl2h_off);\r\n  var b6 = pad(a6,2);\r\n  var c6 = b6.substr(0,1);\r\n  var d6 = b6.substr(1,1);\r\n  var e6 = pad(dec_to_bho (c6,'B'),2);\r\n  var f6 = pad2(dec_to_bho (d6,'B'),4);\r\n  var g6 = parseInt((Schl_off+e6+f6),2);\r\n  bytes[10] = g6;}\r\n  if (input.data.schl2m_off==\"None\" || input.data.schl2m_off==255){\r\n    bytes[11] = 255;}\r\n    else{\r\n  var a7 = parseInt(input.data.schl2m_off);\r\n  var b7 = pad(a7,2);\r\n  var c7 = b7.substr(0,1);\r\n  var d7 = b7.substr(1,1);\r\n  var e7 = pad1(dec_to_bho (c7,'B'),3);\r\n  var f7 = pad2(dec_to_bho (d7,'B'),4);\r\n  var g7 = parseInt((Schl_m+e7+f7),2);\r\n  bytes[11] = g7;}\r\n  bytes[12] = 255;\r\n  if (input.data.schl3h_on==\"None\" || input.data.schl3h_on==255){\r\n    bytes[13] = 255;}\r\n    else{\r\n  var a8 = parseInt(input.data.schl3h_on);\r\n  var b8 = pad(a8,2);\r\n  var c8 = b8.substr(0,1);\r\n  var d8 = b8.substr(1,1);\r\n  var e8 = pad(dec_to_bho (c8,'B'),2);\r\n  var f8 = pad2(dec_to_bho (d8,'B'),4);\r\n  var g8 = parseInt((Schl_on+e8+f8),2);\r\n  bytes[13] = g8;}\r\n  if (input.data.schl3m_on==\"None\" || input.data.schl3m_on==255){\r\n    bytes[14] = 255;}\r\n    else{\r\n  var a9 = parseInt(input.data.schl3m_on);\r\n  var b9 = pad(a9,2);\r\n  var c9 = b9.substr(0,1);\r\n  var d9 = b9.substr(1,1);\r\n  var e9 = pad1(dec_to_bho (c9,'B'),3);\r\n  var f9 = pad2(dec_to_bho (d9,'B'),4);\r\n  var g9 = parseInt((Schl_m+e9+f9),2);\r\n  bytes[14] = g9;}\r\n  bytes[15] = 255;\r\n  if (input.data.schl3h_off==\"None\" || input.data.schl3h_off==255){\r\n    bytes[16] = 255;}\r\n    else{\r\n  var a10 = parseInt(input.data.schl3h_off);\r\n  var b10 = pad(a10,2);\r\n  var c10 = b10.substr(0,1);\r\n  var d10 = b10.substr(1,1);\r\n  var e10 = pad(dec_to_bho (c10,'B'),2);\r\n  var f10 = pad2(dec_to_bho (d10,'B'),4);\r\n  var g10 = parseInt((Schl_off+e10+f10),2);\r\n  bytes[16] = g10;}\r\n  if (input.data.schl3m_off==\"None\" || input.data.schl3m_off==255){\r\n    bytes[17] = 255;}\r\n    else{\r\n  var a11 = parseInt(input.data.schl3m_off);\r\n  var b11 = pad(a11,2);\r\n  var c11 = b11.substr(0,1);\r\n  var d11 = b11.substr(1,1);\r\n  var e11 = pad1(dec_to_bho (c11,'B'),3);\r\n  var f11 = pad2(dec_to_bho (d11,'B'),4);\r\n  var g11 = parseInt((Schl_m+e11+f11),2);\r\n  bytes[17] = g11;}\r\n  bytes[18] = 255;\r\n  if (input.data.schl4h_on==\"None\" || input.data.schl4h_on==255){\r\n    bytes[19] = 255;}\r\n    else{\r\n  var a12 = parseInt(input.data.schl4h_on);\r\n  var b12 = pad(a12,2);\r\n  var c12 = b12.substr(0,1);\r\n  var d12 = b12.substr(1,1);\r\n  var e12 = pad(dec_to_bho (c12,'B'),2);\r\n  var f12 = pad2(dec_to_bho (d12,'B'),4);\r\n  var g12 = parseInt((Schl_on+e12+f12),2);\r\n  bytes[19] = g12;}\r\n  if (input.data.schl4m_on==\"None\" || input.data.schl4m_on==255){\r\n    bytes[20] = 255;}\r\n    else{\r\n  var a13 = parseInt(input.data.schl4m_on);\r\n  var b13 = pad(a13,2);\r\n  var c13 = b13.substr(0,1);\r\n  var d13 = b13.substr(1,1);\r\n  var e13 = pad1(dec_to_bho (c13,'B'),3);\r\n  var f13 = pad2(dec_to_bho (d13,'B'),4);\r\n  var g13 = parseInt((Schl_m+e13+f13),2);\r\n  bytes[20] = g13;}\r\n  bytes[21] = 255;\r\n  if (input.data.schl4h_off==\"None\" || input.data.schl4h_off==255){\r\n    bytes[22] = 255;}\r\n    else{\r\n  var a14 = parseInt(input.data.schl4h_off);\r\n  var b14 = pad(a14,2);\r\n  var c14 = b14.substr(0,1);\r\n  var d14 = b14.substr(1,1);\r\n  var e14 = pad(dec_to_bho (c14,'B'),2);\r\n  var f14 = pad2(dec_to_bho (d14,'B'),4);\r\n  var g14 = parseInt((Schl_off+e14+f14),2);\r\n  bytes[22] = g14;}\r\n  if (input.data.schl4m_off==\"None\" || input.data.schl4m_off==255){\r\n    bytes[23] = 255;}\r\n    else{\r\n  var a15 = parseInt(input.data.schl4m_off);\r\n  var b15 = pad(a15,2);\r\n  var c15 = b15.substr(0,1);\r\n  var d15 = b15.substr(1,1);\r\n  var e15 = pad1(dec_to_bho (c15,'B'),3);\r\n  var f15 = pad2(dec_to_bho (d15,'B'),4);\r\n  var g15 = parseInt((Schl_m+e15+f15),2);\r\n  bytes[23] = g15;}\r\n return {\r\n     bytes:bytes,\r\n }}\r\n \r\n // Setting your Counter value\r\n  if (port == 23){\r\n   var counter = pad3(dec_to_bho (input.data.payload,'B'),24);\r\n   var byte1   = counter.substr(0,8);\r\n   var byte2   = counter.substr(8,8);\r\n   var byte3   = counter.substr(16,8);\r\n   bytes[0]    = parseInt(byte1,2);\r\n   bytes[1]    = parseInt(byte2,2);\r\n   bytes[2]    = parseInt(byte3,2);\r\n  return {\r\n     bytes:bytes,\r\n \r\n  }}}\r\n \r\n function decodeDownlink(input) {\r\n   return {\r\n     data: {\r\n       bytes: input.bytes\r\n     },};}\r\n",
+            "environment": "javascript",
+            "storage": "",
+            "version": "1.0"
+          },
+          "properties": {
+            "uplink": {
+              "data": {
+                "payload": "{{payload}}",
+                "payload_function": "",
+                "payload_type": "source_payload",
+                "resource": "uplink",
+                "source": "resource",
+                "update": "events"
+              },
+              "default": {
+                "source": "value"
+              },
+              "enabled": true
+            }
+          }
+        },
+        "_resources": {
+          "properties": [
+            {
+              "property": "dashboard",
+              "value": {
+                "tabs": [
+                  {
+                    "name": "Overview",
+                    "widgets": [
+                      {
+                        "layout": {
+                          "col": 0,
+                          "row": 0,
+                          "sizeX": 1,
+                          "sizeY": 6
+                        },
+                        "panel": {
+                          "color": "#ffffff",
+                          "currentColor": "#ffffff",
+                          "showOffline": {
+                            "type": "none"
+                          },
+                          "title": "Valve Status"
+                        },
+                        "properties": {
+                          "color": "#2ecc71",
+                          "max": 1,
+                          "min": 0,
+                          "unit": ""
+                        },
+                        "sources": [
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "strega_smart_valve_data",
+                              "mapping": "Actuator",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "color": "#2ecc71",
+                            "name": "Valve",
+                            "source": "bucket",
+                            "timespan": {
+                              "mode": "latest"
+                            }
+                          }
+                        ],
+                        "type": "donutchart"
+                      },
+                      {
+                        "layout": {
+                          "col": 1,
+                          "row": 0,
+                          "sizeX": 1,
+                          "sizeY": 6
+                        },
+                        "panel": {
+                          "color": "#ffffff",
+                          "currentColor": "#ffffff",
+                          "showOffline": {
+                            "type": "none"
+                          },
+                          "title": "Battery Level"
+                        },
+                        "properties": {
+                          "color": "#f39c12",
+                          "max": 100,
+                          "min": 0,
+                          "unit": "%"
+                        },
+                        "sources": [
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "strega_smart_valve_data",
+                              "mapping": "Bat",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "color": "#f39c12",
+                            "name": "Battery",
+                            "source": "bucket",
+                            "timespan": {
+                              "mode": "latest"
+                            }
+                          }
+                        ],
+                        "type": "donutchart"
+                      },
+                      {
+                        "layout": {
+                          "col": 2,
+                          "row": 0,
+                          "sizeX": 1,
+                          "sizeY": 6
+                        },
+                        "panel": {
+                          "color": "#ffffff",
+                          "currentColor": "#ffffff",
+                          "showOffline": {
+                            "type": "none"
+                          },
+                          "title": "Temperature"
+                        },
+                        "properties": {
+                          "color": "#e74c3c",
+                          "max": 60,
+                          "min": -20,
+                          "unit": "°C"
+                        },
+                        "sources": [
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "strega_smart_valve_data",
+                              "mapping": "Temp",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "color": "#e74c3c",
+                            "name": "Temperature",
+                            "source": "bucket",
+                            "timespan": {
+                              "mode": "latest"
+                            }
+                          }
+                        ],
+                        "type": "donutchart"
+                      },
+                      {
+                        "layout": {
+                          "col": 3,
+                          "row": 0,
+                          "sizeX": 1,
+                          "sizeY": 6
+                        },
+                        "panel": {
+                          "color": "#ffffff",
+                          "currentColor": "#ffffff",
+                          "showOffline": {
+                            "type": "none"
+                          },
+                          "title": "Humidity"
+                        },
+                        "properties": {
+                          "color": "#3498db",
+                          "max": 100,
+                          "min": 0,
+                          "unit": "%RH"
+                        },
+                        "sources": [
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "strega_smart_valve_data",
+                              "mapping": "Hygro",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "color": "#3498db",
+                            "name": "Humidity",
+                            "source": "bucket",
+                            "timespan": {
+                              "mode": "latest"
+                            }
+                          }
+                        ],
+                        "type": "donutchart"
+                      },
+                      {
+                        "layout": {
+                          "col": 0,
+                          "row": 6,
+                          "sizeX": 3,
+                          "sizeY": 12
+                        },
+                        "panel": {
+                          "color": "#ffffff",
+                          "currentColor": "#ffffff",
+                          "showOffline": {
+                            "type": "none"
+                          },
+                          "title": "Water Meter Counter"
+                        },
+                        "properties": {
+                          "axis": true,
+                          "fill": false,
+                          "legend": true,
+                          "multiple_axes": false
+                        },
+                        "sources": [
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "strega_smart_valve_data",
+                              "mapping": "counterValue",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "color": "#1abc9c",
+                            "name": "Counter",
+                            "source": "bucket",
+                            "timespan": {
+                              "magnitude": "day",
+                              "mode": "relative",
+                              "period": "latest",
+                              "value": 7
+                            }
+                          }
+                        ],
+                        "type": "chart"
+                      },
+                      {
+                        "layout": {
+                          "col": 3,
+                          "row": 6,
+                          "sizeX": 3,
+                          "sizeY": 6
+                        },
+                        "panel": {
+                          "color": "#ffffff",
+                          "currentColor": "#ffffff",
+                          "showOffline": {
+                            "type": "none"
+                          },
+                          "title": "Temperature & Humidity History"
+                        },
+                        "properties": {
+                          "axis": true,
+                          "fill": false,
+                          "legend": true,
+                          "multiple_axes": true
+                        },
+                        "sources": [
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "strega_smart_valve_data",
+                              "mapping": "Temp",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "color": "#e74c3c",
+                            "name": "Temperature",
+                            "source": "bucket",
+                            "timespan": {
+                              "magnitude": "hour",
+                              "mode": "relative",
+                              "period": "latest",
+                              "value": 24
+                            }
+                          },
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "strega_smart_valve_data",
+                              "mapping": "Hygro",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "color": "#3498db",
+                            "name": "Humidity",
+                            "source": "bucket",
+                            "timespan": {
+                              "magnitude": "hour",
+                              "mode": "relative",
+                              "period": "latest",
+                              "value": 24
+                            }
+                          }
+                        ],
+                        "type": "chart"
+                      },
+                      {
+                        "layout": {
+                          "col": 3,
+                          "row": 12,
+                          "sizeX": 3,
+                          "sizeY": 6
+                        },
+                        "panel": {
+                          "color": "#ffffff",
+                          "currentColor": "#ffffff",
+                          "showOffline": {
+                            "type": "none"
+                          },
+                          "title": "Alarm Status"
+                        },
+                        "properties": {
+                          "source": "code",
+                          "template": "<div style=\"width:100%; height:100%; padding:15px; overflow-y:auto\">\n  <table class=\"table table-striped table-condensed\">\n    <thead>\n      <tr>\n        <th>Alarm Type</th>\n        <th>Status</th>\n      </tr>\n    </thead>\n    <tbody>\n      <tr ng-if=\"value[0]\">\n        <td><strong>Tamper Detection</strong></td>\n        <td><span ng-class=\"value[0].Tamper == '1' ? 'text-danger' : 'text-success'\">{{ value[0].Tamper == '1' ? '⚠ ACTIVE' : '✓ OK' }}</span></td>\n      </tr>\n      <tr ng-if=\"value[0]\">\n        <td><strong>Cable Cut Detection</strong></td>\n        <td><span ng-class=\"value[0].Cable == '1' ? 'text-danger' : 'text-success'\">{{ value[0].Cable == '1' ? '⚠ ACTIVE' : '✓ OK' }}</span></td>\n      </tr>\n      <tr ng-if=\"value[0]\">\n        <td><strong>Leakage Detection</strong></td>\n        <td><span ng-class=\"value[0].Leak == '1' ? 'text-danger' : 'text-success'\">{{ value[0].Leak == '1' ? '⚠ LEAK DETECTED' : '✓ OK' }}</span></td>\n      </tr>\n      <tr ng-if=\"value[0]\">\n        <td><strong>Fraud Detection</strong></td>\n        <td><span ng-class=\"value[0].Fraud == '1' ? 'text-danger' : 'text-success'\">{{ value[0].Fraud == '1' ? '⚠ FRAUD DETECTED' : '✓ OK' }}</span></td>\n      </tr>\n    </tbody>\n  </table>\n</div>"
+                        },
+                        "sources": [
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "strega_smart_valve_data",
+                              "mapping": "Tamper",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "color": "#e74c3c",
+                            "name": "Alarms",
+                            "source": "bucket",
+                            "timespan": {
+                              "mode": "latest"
+                            }
+                          }
+                        ],
+                        "type": "html_time"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "Sensors",
+                    "widgets": [
+                      {
+                        "layout": {
+                          "col": 0,
+                          "row": 0,
+                          "sizeX": 1,
+                          "sizeY": 6
+                        },
+                        "panel": {
+                          "color": "#ffffff",
+                          "currentColor": "#ffffff",
+                          "showOffline": {
+                            "type": "none"
+                          },
+                          "title": "Digital Input 0"
+                        },
+                        "properties": {
+                          "color": "#9b59b6",
+                          "max": 1,
+                          "min": 0,
+                          "unit": ""
+                        },
+                        "sources": [
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "strega_smart_valve_data",
+                              "mapping": "DI0",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "color": "#9b59b6",
+                            "name": "DI0",
+                            "source": "bucket",
+                            "timespan": {
+                              "mode": "latest"
+                            }
+                          }
+                        ],
+                        "type": "donutchart"
+                      },
+                      {
+                        "layout": {
+                          "col": 1,
+                          "row": 0,
+                          "sizeX": 1,
+                          "sizeY": 6
+                        },
+                        "panel": {
+                          "color": "#ffffff",
+                          "currentColor": "#ffffff",
+                          "showOffline": {
+                            "type": "none"
+                          },
+                          "title": "Digital Input 1"
+                        },
+                        "properties": {
+                          "color": "#9b59b6",
+                          "max": 1,
+                          "min": 0,
+                          "unit": ""
+                        },
+                        "sources": [
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "strega_smart_valve_data",
+                              "mapping": "DI1",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "color": "#9b59b6",
+                            "name": "DI1",
+                            "source": "bucket",
+                            "timespan": {
+                              "mode": "latest"
+                            }
+                          }
+                        ],
+                        "type": "donutchart"
+                      },
+                      {
+                        "layout": {
+                          "col": 2,
+                          "row": 0,
+                          "sizeX": 1,
+                          "sizeY": 6
+                        },
+                        "panel": {
+                          "color": "#ffffff",
+                          "currentColor": "#ffffff",
+                          "showOffline": {
+                            "type": "none"
+                          },
+                          "title": "Analog Input"
+                        },
+                        "properties": {
+                          "color": "#16a085",
+                          "max": 5,
+                          "min": 0,
+                          "unit": "V"
+                        },
+                        "sources": [
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "strega_smart_valve_data",
+                              "mapping": "Ana",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "color": "#16a085",
+                            "name": "Analog",
+                            "source": "bucket",
+                            "timespan": {
+                              "mode": "latest"
+                            }
+                          }
+                        ],
+                        "type": "donutchart"
+                      },
+                      {
+                        "layout": {
+                          "col": 0,
+                          "row": 6,
+                          "sizeX": 3,
+                          "sizeY": 12
+                        },
+                        "panel": {
+                          "color": "#ffffff",
+                          "currentColor": "#ffffff",
+                          "showOffline": {
+                            "type": "none"
+                          },
+                          "title": "Analog Input History"
+                        },
+                        "properties": {
+                          "axis": true,
+                          "fill": false,
+                          "legend": true,
+                          "multiple_axes": false
+                        },
+                        "sources": [
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "strega_smart_valve_data",
+                              "mapping": "Ana",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "color": "#16a085",
+                            "name": "Analog Input",
+                            "source": "bucket",
+                            "timespan": {
+                              "magnitude": "day",
+                              "mode": "relative",
+                              "period": "latest",
+                              "value": 7
+                            }
+                          }
+                        ],
+                        "type": "chart"
+                      },
+                      {
+                        "layout": {
+                          "col": 3,
+                          "row": 0,
+                          "sizeX": 3,
+                          "sizeY": 18
+                        },
+                        "panel": {
+                          "color": "#ffffff",
+                          "currentColor": "#ffffff",
+                          "showOffline": {
+                            "type": "none"
+                          },
+                          "title": "Recent Sensor Data"
+                        },
+                        "properties": {
+                          "source": "code",
+                          "template": "<div style=\"width:100%; height:100%; overflow-y:auto\">\n  <table class=\"table table-striped table-condensed\">\n    <thead>\n      <tr>\n        <th>Date</th>\n        <th>Temp (°C)</th>\n        <th>Humidity (%)</th>\n        <th>Counter</th>\n        <th>Analog (V)</th>\n        <th>DI0</th>\n        <th>DI1</th>\n      </tr>\n    </thead>\n    <tbody>\n      <tr ng-repeat=\"entry in value\">\n        <td>{{ entry.ts | date:'medium' }}</td>\n        <td>{{ entry.Temp || '—' }}</td>\n        <td>{{ entry.Hygro || '—' }}</td>\n        <td>{{ entry.counterValue || '—' }}</td>\n        <td>{{ entry.Ana || '—' }}</td>\n        <td>{{ entry.DI0 }}</td>\n        <td>{{ entry.DI1 }}</td>\n      </tr>\n    </tbody>\n  </table>\n</div>"
+                        },
+                        "sources": [
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "strega_smart_valve_data",
+                              "mapping": "ts",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "color": "#34495e",
+                            "name": "Data",
+                            "source": "bucket",
+                            "timespan": {
+                              "magnitude": "hour",
+                              "mode": "relative",
+                              "period": "latest",
+                              "value": 24
+                            }
+                          }
+                        ],
+                        "type": "html_time"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
