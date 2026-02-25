@@ -1,0 +1,511 @@
+{
+  "name": "gwf_rcm_lrw10",
+  "version": "1.0.0",
+  "description": "The GWFcoder RCM-LRW10 is a radio module that connects GWFcoder water and gas meters to LPWAN networks without replacing the meter, enabling remote data transmission with simple plug-and-play installation.",
+  "author": "Thinger.io",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/thinger-io/plugins.git",
+    "directory": "gwf-rcm-lrw10"
+  },
+  "metadata": {
+    "name": "Gwf RCM-LRW10",
+    "description": "The GWFcoder RCM-LRW10 is a radio module that connects GWFcoder water and gas meters to LPWAN networks without replacing the meter, enabling remote data transmission with simple plug-and-play installation.",
+    "image": "assets/rcm-lrw10.png",
+    "category": "devices",
+    "vendor": "gwf"
+  },
+  "resources": {
+    "products": [
+      {
+        "description": "The GWFcoder RCM-LRW10 is a radio module that connects GWFcoder water and gas meters to LPWAN networks without replacing the meter, enabling remote data transmission with simple plug-and-play installation.",
+        "enabled": true,
+        "name": "Gwf RCM-LRW10",
+        "product": "gwf_rcm_lrw10",
+        "profile": {
+          "api": {
+            "downlink": {
+              "enabled": true,
+              "handle_connectivity": false,
+              "request": {
+                "data": {
+                  "path": "/downlink",
+                  "payload": "{\n    \"data\"    : \"{{payload.data=\"\"}}\",\n    \"port\"    :  {{payload.port=85}},\n    \"priority\":  {{payload.priority=3}},\n    \"confirmed\" :  {{payload.confirmed=false}},\n    \"uplink\"  :  {{property.uplink}} \n}",
+                  "payload_function": "",
+                  "payload_type": "source_payload",
+                  "plugin": "{{property.uplink.source}}",
+                  "target": "plugin_endpoint"
+                }
+              }
+            },
+            "uplink": {
+              "device_id_resolver": "getId",
+              "enabled": true,
+              "handle_connectivity": true,
+              "request": {
+                "data": {
+                  "payload": "{{payload}}",
+                  "payload_function": "",
+                  "payload_type": "source_payload",
+                  "resource_stream": "uplink",
+                  "target": "resource_stream"
+                }
+              }
+            }
+          },
+          "autoprovisions": {
+            "device_autoprovisioning": {
+              "config": {
+                "mode": "pattern",
+                "pattern": "gwf-rcm-lrw10.*"
+              },
+              "enabled": true
+            }
+          },
+          "buckets": {
+            "gwf_rcm_lrw10_data_bucket": {
+              "backend": "mongodb",
+              "data": {
+                "payload": "{{payload}}",
+                "payload_function": "decodeThingerUplink",
+                "payload_type": "source_payload",
+                "resource": "uplink",
+                "source": "resource",
+                "update": "events"
+              },
+              "enabled": true,
+              "retention": {
+                "period": 3,
+                "unit": "months"
+              },
+              "tags": [
+                "telemetry",
+                "meter_data"
+              ]
+            }
+          },
+          "code": {
+            "code": "function decodeThingerUplink(thingerData) {\n    // 0. If data has already been decoded, we will return it\n    if (thingerData.decodedPayload) return thingerData.decodedPayload;\n    \n    // 1. Extract and Validate Input\n    // We need 'payload' (hex string) and 'fPort' (integer)\n    const hexPayload = thingerData.payload || \"\";\n    const port = thingerData.fPort || 1;\n\n    // 2. Convert Hex String to Byte Array\n    const bytes = [];\n    for (let i = 0; i < hexPayload.length; i += 2) {\n        bytes.push(parseInt(hexPayload.substr(i, 2), 16));\n    }\n\n    // 3. Dynamic Function Detection and Execution\n    \n    // CASE A: (The Things Stack v3)\n    if (typeof decodeUplink === 'function') {\n        try {\n            const input = {\n                bytes: bytes,\n                fPort: port\n            };\n            var result = decodeUplink(input);\n            \n            if (result.data) return result.data;\n\n            return result; \n        } catch (e) {\n            console.error(\"Error inside decodeUplink:\", e);\n            throw e;\n        }\n    }\n\n    // CASE B: Legacy TTN (v2)\n    else if (typeof Decoder === 'function') {\n        try {\n            return Decoder(bytes, port);\n        } catch (e) {\n            console.error(\"Error inside Decoder:\", e);\n            throw e;\n        }\n    }\n\n    // CASE C: No decoder found\n    else {\n        throw new Error(\"No compatible TTN decoder function (decodeUplink or Decoder) found in scope.\");\n    }\n}\n\n\n// TTN decoder\nfunction decodeUplink(input) {\n\tvar bytes = input.bytes;\n\t// Decode an uplink message from a buffer\n\t// (array) of bytes to an object of fields.\n\tvar decoded = {};\n\n\t// gwf protocol byte 0\n\tswitch (bytes[0]) {\n\t\tcase 0x01:\n\t\t\tdecoded.protocol = \"standard\";\n\t\t\tbreak;\n\t\tcase 0x02:\n\t\t\tdecoded.protocol = \"noDueDate\";\n\t\t\tbreak;\n\t\tdefault:\n\t\t\tdecoded.protocol = \"unkown\";\n\t\t\tbreak;\n\t}\n\t// manufacturer byte 1,2\n\tdecoded.manufacturer = getManufacturer(bytes[1], bytes[2]);\n\n\t// meter id byte 3,4,5,6\n\n\tdecoded.meterId = 0;\n\n\tfor (var i = 3; i >= 0; i--) {\n\t\tdecoded.meterId = decoded.meterId * 100 + decode(bytes[i + 3]);\n\t}\n\n\t//medium byte 7\n\tswitch (bytes[7]) {\n\t\tcase 0x03:\n\t\t\tdecoded.medium = \"Gas\";\n\t\t\tbreak;\n\t\tcase 0x06:\n\t\t\tdecoded.medium = \"Hot Water\";\n\t\t\tbreak;\n\t\tcase 0x07:\n\t\t\tdecoded.medium = \"Water\";\n\t\t\tbreak;\n\t\tdefault:\n\t\t\tdecoded.medium = \"Unkown\";\n\t}\n\n\tdecoded.badEncoder =\n\t\t(((bytes[8] & (1 << 4)) >> 4) & ((bytes[8] & (1 << 6)) >> 6)) !== 0;\n\tdecoded.noEncoder =\n\t\t(((bytes[8] & (1 << 4)) >> 4) & ((bytes[8] & (1 << 5)) >> 5)) !== 0;\n\tdecoded.lowBattery = (bytes[8] & (1 << 2)) >> 2 == 1;\n\n\t//actuality duration bytes 10,11\n\tdecoded.actualityduration = bytes[10] * 265 + bytes[9];\n\n\t// register value, bytes 12,13,14,15\n\tvar registerValue = 0;\n\tvar j = 15;\n\twhile (1) {\n\t\tregisterValue += bytes[j];\n\t\tif (j == 12) break;\n\t\tregisterValue *= 256;\n\t\tj--;\n\t}\n\n\tdecoded.registerValue = registerValue;\n\n\t//byte 16\n\n\tdecoded.reservedBit0 = (bytes[16] & 0x1) == 1;\n\tdecoded.continousFlow = (bytes[16] & 0x2) == 1;\n\tdecoded.reservedBit2 = (bytes[16] & 0x4) == 1;\n\tdecoded.brokenPipe = (bytes[16] & 0x8) == 1;\n\tdecoded.reservedBit4 = (bytes[16] & 0x10) == 1;\n\t//decoded.lowBattery=(bytes[16]&0x20)==1;\n\tdecoded.backFlow = (bytes[16] & 0x40) == 1;\n\tdecoded.reservedBit7 = (bytes[16] & 0x80) == 1;\n\n\t//byte 17\n\tdecoded.batteryLifeSemesters = (bytes[17] & 0xf8) >> 3;\n\tdecoded.linkError = (bytes[17] & 0x04) !== 0;\n\n\t//byte 18-19\n\tdecoded.crc = \"0x\" + (bytes[18] * 256 + bytes[19]).toString(16);\n\n\treturn {\n\t  data: decoded,\n    warnings: [],\n    errors: []\n\t};\n}\n\nfunction decode(b) {\n\treturn (b >> 4) * 10 + (b & 0xf);\n}\n\nfunction getManufacturer(lowByte, highByte) {\n\tvar valHB = parseInt(highByte);\n\tvar valLB = parseInt(lowByte);\n\tvar res = valHB * 256 + valLB;\n\tfirstLetterCC = res / 32 / 32 + 64;\n\tfirstLetter = String.fromCharCode(firstLetterCC);\n\tsecondLetterCC = ((res / 32) % 32) + 64;\n\tsecondLetter = String.fromCharCode(secondLetterCC);\n\tthirdLetterCC = (res % 32) + 64;\n\tthirdLetter = String.fromCharCode(thirdLetterCC);\n\treturn firstLetter.concat(secondLetter, thirdLetter);\n}\n",
+            "environment": "javascript",
+            "storage": "",
+            "version": "1.0"
+          },
+          "properties": {
+            "uplink": {
+              "data": {
+                "payload": "{{payload}}",
+                "payload_function": "",
+                "payload_type": "source_payload",
+                "resource": "uplink",
+                "source": "resource",
+                "update": "events"
+              },
+              "default": {
+                "source": "value"
+              },
+              "enabled": true
+            }
+          }
+        },
+        "_resources": {
+          "properties": [
+            {
+              "property": "dashboard",
+              "value": {
+                "tabs": [
+                  {
+                    "name": "Main",
+                    "widgets": [
+                      {
+                        "layout": {
+                          "col": 0,
+                          "row": 0,
+                          "sizeX": 2,
+                          "sizeY": 6
+                        },
+                        "panel": {
+                          "color": "#ffffff",
+                          "currentColor": "#ffffff",
+                          "showOffline": {
+                            "type": "none"
+                          },
+                          "title": "Meter Reading"
+                        },
+                        "properties": {
+                          "color": "#1abc9c",
+                          "unit": "m³"
+                        },
+                        "sources": [
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "gwf_rcm_lrw10_data_bucket",
+                              "mapping": "registerValue",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "color": "#1abc9c",
+                            "name": "Register Value",
+                            "source": "bucket",
+                            "timespan": {
+                              "mode": "latest"
+                            }
+                          }
+                        ],
+                        "type": "text"
+                      },
+                      {
+                        "layout": {
+                          "col": 2,
+                          "row": 0,
+                          "sizeX": 1,
+                          "sizeY": 6
+                        },
+                        "panel": {
+                          "color": "#ffffff",
+                          "currentColor": "#ffffff",
+                          "showOffline": {
+                            "type": "none"
+                          },
+                          "title": "Medium Type"
+                        },
+                        "properties": {
+                          "color": "#3498db"
+                        },
+                        "sources": [
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "gwf_rcm_lrw10_data_bucket",
+                              "mapping": "medium",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "color": "#3498db",
+                            "name": "Medium",
+                            "source": "bucket",
+                            "timespan": {
+                              "mode": "latest"
+                            }
+                          }
+                        ],
+                        "type": "text"
+                      },
+                      {
+                        "layout": {
+                          "col": 3,
+                          "row": 0,
+                          "sizeX": 1,
+                          "sizeY": 6
+                        },
+                        "panel": {
+                          "color": "#ffffff",
+                          "currentColor": "#ffffff",
+                          "showOffline": {
+                            "type": "none"
+                          },
+                          "title": "Battery Life"
+                        },
+                        "properties": {
+                          "color": "#f39c12",
+                          "max": 40,
+                          "min": 0,
+                          "unit": "semesters"
+                        },
+                        "sources": [
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "gwf_rcm_lrw10_data_bucket",
+                              "mapping": "batteryLifeSemesters",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "color": "#f39c12",
+                            "name": "Battery Life",
+                            "source": "bucket",
+                            "timespan": {
+                              "mode": "latest"
+                            }
+                          }
+                        ],
+                        "type": "donutchart"
+                      },
+                      {
+                        "layout": {
+                          "col": 0,
+                          "row": 6,
+                          "sizeX": 4,
+                          "sizeY": 12
+                        },
+                        "panel": {
+                          "color": "#ffffff",
+                          "currentColor": "#ffffff",
+                          "showOffline": {
+                            "type": "none"
+                          },
+                          "title": "Consumption History"
+                        },
+                        "properties": {
+                          "axis": true,
+                          "fill": false,
+                          "legend": true,
+                          "multiple_axes": false
+                        },
+                        "sources": [
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "gwf_rcm_lrw10_data_bucket",
+                              "mapping": "registerValue",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "color": "#1abc9c",
+                            "name": "Register Value",
+                            "source": "bucket",
+                            "timespan": {
+                              "magnitude": "day",
+                              "mode": "relative",
+                              "period": "latest",
+                              "value": 30
+                            }
+                          }
+                        ],
+                        "type": "chart"
+                      },
+                      {
+                        "layout": {
+                          "col": 4,
+                          "row": 0,
+                          "sizeX": 2,
+                          "sizeY": 18
+                        },
+                        "panel": {
+                          "color": "#ffffff",
+                          "currentColor": "#ffffff",
+                          "showOffline": {
+                            "type": "none"
+                          },
+                          "title": "Device Status & Alarms"
+                        },
+                        "properties": {
+                          "source": "code",
+                          "template": "<div style=\"width:100%; height:100%; padding:15px; overflow-y:auto\">\n  <h4>Status Information</h4>\n  <table class=\"table table-condensed\">\n    <tr ng-repeat=\"entry in value | limitTo:1\">\n      <td><strong>Meter ID:</strong></td>\n      <td>{{ entry.meterId }}</td>\n    </tr>\n    <tr ng-repeat=\"entry in value | limitTo:1\">\n      <td><strong>Manufacturer:</strong></td>\n      <td>{{ entry.manufacturer }}</td>\n    </tr>\n    <tr ng-repeat=\"entry in value | limitTo:1\">\n      <td><strong>Protocol:</strong></td>\n      <td>{{ entry.protocol }}</td>\n    </tr>\n    <tr ng-repeat=\"entry in value | limitTo:1\">\n      <td><strong>Actuality Duration:</strong></td>\n      <td>{{ entry.actualityduration }} min</td>\n    </tr>\n  </table>\n  \n  <h4 style=\"margin-top:20px\">Alarms</h4>\n  <table class=\"table table-condensed\">\n    <tr ng-repeat=\"entry in value | limitTo:1\">\n      <td><strong>Low Battery:</strong></td>\n      <td ng-class=\"{'text-danger': entry.lowBattery, 'text-success': !entry.lowBattery}\">\n        {{ entry.lowBattery ? 'YES' : 'NO' }}\n      </td>\n    </tr>\n    <tr ng-repeat=\"entry in value | limitTo:1\">\n      <td><strong>Continuous Flow:</strong></td>\n      <td ng-class=\"{'text-warning': entry.continousFlow, 'text-success': !entry.continousFlow}\">\n        {{ entry.continousFlow ? 'YES' : 'NO' }}\n      </td>\n    </tr>\n    <tr ng-repeat=\"entry in value | limitTo:1\">\n      <td><strong>Broken Pipe:</strong></td>\n      <td ng-class=\"{'text-danger': entry.brokenPipe, 'text-success': !entry.brokenPipe}\">\n        {{ entry.brokenPipe ? 'YES' : 'NO' }}\n      </td>\n    </tr>\n    <tr ng-repeat=\"entry in value | limitTo:1\">\n      <td><strong>Back Flow:</strong></td>\n      <td ng-class=\"{'text-warning': entry.backFlow, 'text-success': !entry.backFlow}\">\n        {{ entry.backFlow ? 'YES' : 'NO' }}\n      </td>\n    </tr>\n    <tr ng-repeat=\"entry in value | limitTo:1\">\n      <td><strong>No Encoder:</strong></td>\n      <td ng-class=\"{'text-danger': entry.noEncoder, 'text-success': !entry.noEncoder}\">\n        {{ entry.noEncoder ? 'YES' : 'NO' }}\n      </td>\n    </tr>\n    <tr ng-repeat=\"entry in value | limitTo:1\">\n      <td><strong>Bad Encoder:</strong></td>\n      <td ng-class=\"{'text-danger': entry.badEncoder, 'text-success': !entry.badEncoder}\">\n        {{ entry.badEncoder ? 'YES' : 'NO' }}\n      </td>\n    </tr>\n    <tr ng-repeat=\"entry in value | limitTo:1\">\n      <td><strong>Link Error:</strong></td>\n      <td ng-class=\"{'text-danger': entry.linkError, 'text-success': !entry.linkError}\">\n        {{ entry.linkError ? 'YES' : 'NO' }}\n      </td>\n    </tr>\n  </table>\n  \n  <p style=\"margin-top:20px; font-size:0.85em; color:#999\">\n    Last update: {{ (value[0].ts || Date.now()) | date:'medium' }}\n  </p>\n</div>"
+                        },
+                        "sources": [
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "gwf_rcm_lrw10_data_bucket",
+                              "mapping": "ts",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "name": "ts",
+                            "source": "bucket",
+                            "timespan": {
+                              "mode": "latest"
+                            }
+                          },
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "gwf_rcm_lrw10_data_bucket",
+                              "mapping": "meterId",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "name": "meterId",
+                            "source": "bucket",
+                            "timespan": {
+                              "mode": "latest"
+                            }
+                          },
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "gwf_rcm_lrw10_data_bucket",
+                              "mapping": "manufacturer",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "name": "manufacturer",
+                            "source": "bucket",
+                            "timespan": {
+                              "mode": "latest"
+                            }
+                          },
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "gwf_rcm_lrw10_data_bucket",
+                              "mapping": "protocol",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "name": "protocol",
+                            "source": "bucket",
+                            "timespan": {
+                              "mode": "latest"
+                            }
+                          },
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "gwf_rcm_lrw10_data_bucket",
+                              "mapping": "actualityduration",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "name": "actualityduration",
+                            "source": "bucket",
+                            "timespan": {
+                              "mode": "latest"
+                            }
+                          },
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "gwf_rcm_lrw10_data_bucket",
+                              "mapping": "lowBattery",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "name": "lowBattery",
+                            "source": "bucket",
+                            "timespan": {
+                              "mode": "latest"
+                            }
+                          },
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "gwf_rcm_lrw10_data_bucket",
+                              "mapping": "continousFlow",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "name": "continousFlow",
+                            "source": "bucket",
+                            "timespan": {
+                              "mode": "latest"
+                            }
+                          },
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "gwf_rcm_lrw10_data_bucket",
+                              "mapping": "brokenPipe",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "name": "brokenPipe",
+                            "source": "bucket",
+                            "timespan": {
+                              "mode": "latest"
+                            }
+                          },
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "gwf_rcm_lrw10_data_bucket",
+                              "mapping": "backFlow",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "name": "backFlow",
+                            "source": "bucket",
+                            "timespan": {
+                              "mode": "latest"
+                            }
+                          },
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "gwf_rcm_lrw10_data_bucket",
+                              "mapping": "noEncoder",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "name": "noEncoder",
+                            "source": "bucket",
+                            "timespan": {
+                              "mode": "latest"
+                            }
+                          },
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "gwf_rcm_lrw10_data_bucket",
+                              "mapping": "badEncoder",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "name": "badEncoder",
+                            "source": "bucket",
+                            "timespan": {
+                              "mode": "latest"
+                            }
+                          },
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "gwf_rcm_lrw10_data_bucket",
+                              "mapping": "linkError",
+                              "tags": {
+                                "device": [],
+                                "group": []
+                              }
+                            },
+                            "name": "linkError",
+                            "source": "bucket",
+                            "timespan": {
+                              "mode": "latest"
+                            }
+                          }
+                        ],
+                        "type": "html_time"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
