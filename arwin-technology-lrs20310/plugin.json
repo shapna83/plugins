@@ -1,473 +1,477 @@
 {
-  "name": "arwin_technology_lrs20310",
-  "version": "1.0.0",
-  "description": "Water Leak Sensor",
-  "author": "Thinger.io",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/thinger-io/plugins.git",
-    "directory": "arwin-technology-lrs20310"
-  },
-  "metadata": {
-    "name": "Arwin-Technology LRS20310",
+    "name": "arwin-technology-lrs20310",
+    "version": "1.0.0",
     "description": "Water Leak Sensor",
-    "image": "assets/lrs20310.jpg",
-    "category": "devices",
-    "vendor": "arwin-technology"
-  },
-  "resources": {
-    "products": [
-      {
-        "description": "Water Leak Sensor",
-        "enabled": true,
+    "author": "Thinger.io",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/thinger-io/plugins.git",
+        "directory": "arwin-technology-lrs20310"
+    },
+    "metadata": {
         "name": "Arwin-Technology LRS20310",
-        "product": "arwin_technology_lrs20310",
-        "profile": {
-          "api": {
-            "downlink": {
-              "enabled": true,
-              "handle_connectivity": false,
-              "request": {
-                "data": {
-                  "path": "/downlink",
-                  "payload": "{\n    \"data\"    : \"{{payload.data=\"\"}}\",\n    \"port\"    :  {{payload.port=85}},\n    \"priority\":  {{payload.priority=3}},\n    \"confirmed\" :  {{payload.confirmed=false}},\n    \"uplink\"  :  {{property.uplink}} \n}",
-                  "payload_function": "",
-                  "payload_type": "",
-                  "plugin": "{{property.uplink.source}}",
-                  "target": "plugin_endpoint"
-                }
-              }
-            },
-            "uplink": {
-              "device_id_resolver": "getId",
-              "enabled": true,
-              "handle_connectivity": true,
-              "request": {
-                "data": {
-                  "payload": "{{payload}}",
-                  "payload_function": "",
-                  "payload_type": "source_payload",
-                  "resource_stream": "uplink",
-                  "target": "resource_stream"
-                }
-              }
-            }
-          },
-          "autoprovisions": {
-            "device_autoprovisioning": {
-              "config": {
-                "mode": "pattern",
-                "pattern": "lrs20310-.*"
-              },
-              "enabled": true
-            }
-          },
-          "buckets": {
-            "device_data": {
-              "backend": "mongodb",
-              "data": {
-                "payload": "{{payload}}",
-                "payload_function": "decodeThingerUplink",
-                "payload_type": "source_payload",
-                "resource": "uplink",
-                "source": "resource",
-                "update": "events"
-              },
-              "enabled": true,
-              "retention": {
-                "period": 3,
-                "unit": "months"
-              },
-              "tags": []
-            }
-          },
-          "code": {
-            "code": "function decodeThingerUplink(thingerData) {\n    // 0. If data has already been decoded, we will return it\n    if (thingerData.decodedPayload) return thingerData.decodedPayload;\n    \n    // 1. Extract and Validate Input\n    // We need 'payload' (hex string) and 'fPort' (integer)\n    const hexPayload = thingerData.payload || \"\";\n    const port = thingerData.fPort || 1;\n\n    // 2. Convert Hex String to Byte Array\n    const bytes = [];\n    for (let i = 0; i < hexPayload.length; i += 2) {\n        bytes.push(parseInt(hexPayload.substr(i, 2), 16));\n    }\n\n    // 3. Dynamic Function Detection and Execution\n    \n    // CASE A: (The Things Stack v3)\n    if (typeof decodeUplink === 'function') {\n        try {\n            const input = {\n                bytes: bytes,\n                fPort: port\n            };\n            var result = decodeUplink(input);\n            \n            if (result.data) return result.data;\n\n            return result; \n        } catch (e) {\n            console.error(\"Error inside decodeUplink:\", e);\n            throw e;\n        }\n    }\n\n    // CASE B: Legacy TTN (v2)\n    else if (typeof Decoder === 'function') {\n        try {\n            return Decoder(bytes, port);\n        } catch (e) {\n            console.error(\"Error inside Decoder:\", e);\n            throw e;\n        }\n    }\n\n    // CASE C: No decoder found\n    else {\n        throw new Error(\"No compatible TTN decoder function (decodeUplink or Decoder) found in scope.\");\n    }\n}\n\n\n// TTN decoder\nvar lrs20310_events = ['heartbeat', 'rsvd', 'water_leak_alert', 'cable_break_alert'];\n\nfunction hex2dec(hex) {\n  var dec = hex&0xFFFF;\n  if (dec & 0x8000)\n    dec = -(0x10000-dec)\n  return dec;\n}\n\nfunction decodeUplink(input) {\n  switch (input.fPort) {\n    case 10: // sensor data\n      switch (input.bytes[0]) {\n        case 5:\n          var evt=\"\";\n          for (let i=0; i<8; i++) {\n            if ((0x01<<i)&input.bytes[1]) \n              if (evt===\"\")\n                evt=lrs20310_events[i];\n              else\n                evt=evt+\",\"+lrs20310_events[i];\n          }\n          return {\n            data: {\n              event: evt,\n              battery: input.bytes[2],\n              waterLeakLevel: input.bytes[3],\n            },\n          };\n        default:\n          return {\n            errors: ['unknown sensor type']\n          };\n      }\n      break;\n    case 8: // version\n      var ver = input.bytes[0]+\".\"+(\"00\"+input.bytes[1]).slice(-2)+\".\"+(\"000\"+(input.bytes[2]<<8|input.bytes[3])).slice(-3);    \n      return {\n        data: {\n          firmwareVersion: ver,\n        }\n      };\n    case 12: // device settings\n      switch (input.bytes[0]) {\n        case 5:\n          return {\n            data: {\n              dataUploadInterval: hex2dec(input.bytes[1]<<8|input.bytes[2]),\n              numAdditionalUploads: input.bytes[4],\n              additionalUploadsInterval: input.bytes[5],\n            }\n          };\n        default:\n          return {\n            errors: ['unknown sensor type']\n          }\n      }\n      case 13: // threshold settings\n      switch (input.bytes[0]) {\n        case 5:\n          return {\n            data: {\n              waterLeakAlertThreshold: input.bytes[1],\n            }\n          }\n        default:\n          return {\n            errors: ['unknown sensor type']\n          }\n      }\n    default:\n      return {\n        errors: ['unknown FPort'],\n      };\n  }\n}\n",
-            "environment": "javascript",
-            "storage": "",
-            "version": "1.0"
-          },
-          "properties": {
-            "uplink": {
-              "data": {
-                "payload": "{{payload}}",
-                "payload_function": "",
-                "payload_type": "source_payload",
-                "resource": "uplink",
-                "source": "resource",
-                "update": "events"
-              },
-              "default": {
-                "source": "value"
-              },
-              "enabled": true
-            }
-          }
-        },
-        "_resources": {
-          "properties": [
+        "description": "Water Leak Sensor",
+        "image": "assets/lrs20310.png",
+        "category": "devices",
+        "vendor": "arwin-technology"
+    },
+    "resources": {
+        "products": [
             {
-              "property": "dashboard",
-              "value": {
-                "tabs": [
-                  {
-                    "name": "Main",
-                    "widgets": [
-                      {
-                        "layout": {
-                          "col": 0,
-                          "row": 0,
-                          "sizeX": 2,
-                          "sizeY": 6
-                        },
-                        "panel": {
-                          "color": "#ffffff",
-                          "currentColor": "#ffffff",
-                          "showOffline": {
-                            "type": "none"
-                          },
-                          "title": "Water Leak Level"
-                        },
-                        "properties": {
-                          "color": "#3498db",
-                          "max": 255,
-                          "min": 0,
-                          "unit": "Level"
-                        },
-                        "sources": [
-                          {
-                            "bucket": {
-                              "backend": "mongodb",
-                              "id": "device_data",
-                              "mapping": "waterLeakLevel",
-                              "tags": {
-                                "device": [],
-                                "group": []
-                              }
-                            },
-                            "color": "#3498db",
-                            "name": "Water Leak Level",
-                            "source": "bucket",
-                            "timespan": {
-                              "mode": "latest"
+                "description": "Water Leak Sensor",
+                "enabled": true,
+                "name": "Arwin-Technology LRS20310",
+                "product": "arwin_technology_lrs20310",
+                "profile": {
+                    "api": {
+                        "downlink": {
+                            "enabled": true,
+                            "handle_connectivity": false,
+                            "request": {
+                                "data": {
+                                    "path": "/downlink",
+                                    "payload": "{\n    \"data\"    : \"{{payload.data=\"\"}}\",\n    \"port\"    :  {{payload.port=85}},\n    \"priority\":  {{payload.priority=3}},\n    \"confirmed\" :  {{payload.confirmed=false}},\n    \"uplink\"  :  {{property.uplink}} \n}",
+                                    "payload_function": "",
+                                    "payload_type": "",
+                                    "plugin": "{{property.uplink.source}}",
+                                    "target": "plugin_endpoint"
+                                }
                             }
-                          }
-                        ],
-                        "type": "donutchart"
-                      },
-                      {
-                        "layout": {
-                          "col": 2,
-                          "row": 0,
-                          "sizeX": 2,
-                          "sizeY": 6
                         },
-                        "panel": {
-                          "color": "#ffffff",
-                          "currentColor": "#ffffff",
-                          "showOffline": {
-                            "type": "none"
-                          },
-                          "title": "Battery Level"
-                        },
-                        "properties": {
-                          "color": "#27ae60",
-                          "max": 100,
-                          "min": 0,
-                          "unit": "%"
-                        },
-                        "sources": [
-                          {
-                            "bucket": {
-                              "backend": "mongodb",
-                              "id": "device_data",
-                              "mapping": "battery",
-                              "tags": {
-                                "device": [],
-                                "group": []
-                              }
-                            },
-                            "color": "#27ae60",
-                            "name": "Battery",
-                            "source": "bucket",
-                            "timespan": {
-                              "mode": "latest"
+                        "uplink": {
+                            "device_id_resolver": "getId",
+                            "enabled": true,
+                            "handle_connectivity": true,
+                            "request": {
+                                "data": {
+                                    "payload": "{{payload}}",
+                                    "payload_function": "",
+                                    "payload_type": "source_payload",
+                                    "resource_stream": "uplink",
+                                    "target": "resource_stream"
+                                }
                             }
-                          }
-                        ],
-                        "type": "donutchart"
-                      },
-                      {
-                        "layout": {
-                          "col": 4,
-                          "row": 0,
-                          "sizeX": 2,
-                          "sizeY": 6
-                        },
-                        "panel": {
-                          "color": "#ffffff",
-                          "currentColor": "#ffffff",
-                          "showOffline": {
-                            "type": "none"
-                          },
-                          "title": "Current Event Status"
-                        },
-                        "properties": {
-                          "source": "code",
-                          "template": "<div style=\"width:100%; height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; font-size: 18px; padding:20px; text-align:center;\">\n  <div ng-if=\"value && value.length > 0\" style=\"width:100%;\">\n    <div ng-repeat=\"entry in value | limitTo:1\" style=\"padding:10px; border-radius:8px; background-color:#ecf0f1;\">\n      <div style=\"font-weight:bold; margin-bottom:10px; color:#34495e;\">Latest Event</div>\n      <div ng-if=\"entry.event\" style=\"font-size:24px; font-weight:bold; margin:10px 0; color: {{ entry.event.indexOf('alert') >= 0 ? '#e74c3c' : '#2ecc71' }};\">\n        {{ entry.event }}\n      </div>\n      <div ng-if=\"!entry.event\" style=\"font-size:20px; color:#95a5a6;\">No event data</div>\n      <div style=\"font-size:12px; color:#7f8c8d; margin-top:10px;\">{{ entry.ts | date:'medium' }}</div>\n    </div>\n  </div>\n  <div ng-if=\"!value || value.length === 0\" style=\"color:#95a5a6;\">\n    No data available\n  </div>\n</div>"
-                        },
-                        "sources": [
-                          {
-                            "aggregation": {},
-                            "bucket": {
-                              "backend": "mongodb",
-                              "id": "device_data",
-                              "mapping": "ts",
-                              "tags": {
-                                "device": [],
-                                "group": []
-                              }
+                        }
+                    },
+                    "autoprovisions": {
+                        "device_autoprovisioning": {
+                            "config": {
+                                "mode": "pattern",
+                                "pattern": "lrs20310-.*"
                             },
-                            "color": "#1abc9c",
-                            "name": "timestamp",
-                            "source": "bucket",
-                            "timespan": {
-                              "magnitude": "hour",
-                              "mode": "relative",
-                              "period": "latest",
-                              "value": 1
-                            }
-                          },
-                          {
-                            "aggregation": {},
-                            "bucket": {
-                              "backend": "mongodb",
-                              "id": "device_data",
-                              "mapping": "event",
-                              "tags": {
-                                "device": [],
-                                "group": []
-                              }
+                            "enabled": true
+                        }
+                    },
+                    "buckets": {
+                        "arwin_technology_lrs20310_data": {
+                            "backend": "mongodb",
+                            "data": {
+                                "payload": "{{payload}}",
+                                "payload_function": "decodeThingerUplink",
+                                "payload_type": "source_payload",
+                                "resource": "uplink",
+                                "source": "resource",
+                                "update": "events"
                             },
-                            "color": "#e74c3c",
-                            "name": "event",
-                            "source": "bucket",
-                            "timespan": {
-                              "magnitude": "hour",
-                              "mode": "relative",
-                              "period": "latest",
-                              "value": 1
-                            }
-                          }
-                        ],
-                        "type": "html_time"
-                      },
-                      {
-                        "layout": {
-                          "col": 0,
-                          "row": 6,
-                          "sizeX": 4,
-                          "sizeY": 12
-                        },
-                        "panel": {
-                          "color": "#ffffff",
-                          "currentColor": "#ffffff",
-                          "showOffline": {
-                            "type": "none"
-                          },
-                          "title": "Water Leak Level History"
-                        },
-                        "properties": {
-                          "axis": true,
-                          "fill": false,
-                          "legend": true,
-                          "multiple_axes": false
-                        },
-                        "sources": [
-                          {
-                            "bucket": {
-                              "backend": "mongodb",
-                              "id": "device_data",
-                              "mapping": "waterLeakLevel",
-                              "tags": {
-                                "device": [],
-                                "group": []
-                              }
+                            "enabled": true,
+                            "retention": {
+                                "period": 3,
+                                "unit": "months"
                             },
-                            "color": "#3498db",
-                            "name": "Water Leak Level",
-                            "source": "bucket",
-                            "timespan": {
-                              "magnitude": "day",
-                              "mode": "relative",
-                              "period": "latest",
-                              "value": 7
-                            }
-                          }
-                        ],
-                        "type": "chart"
-                      },
-                      {
-                        "layout": {
-                          "col": 4,
-                          "row": 6,
-                          "sizeX": 2,
-                          "sizeY": 12
-                        },
-                        "panel": {
-                          "color": "#ffffff",
-                          "currentColor": "#ffffff",
-                          "showOffline": {
-                            "type": "none"
-                          },
-                          "title": "Battery History"
-                        },
-                        "properties": {
-                          "axis": true,
-                          "fill": false,
-                          "legend": true,
-                          "multiple_axes": false
-                        },
-                        "sources": [
-                          {
-                            "bucket": {
-                              "backend": "mongodb",
-                              "id": "device_data",
-                              "mapping": "battery",
-                              "tags": {
-                                "device": [],
-                                "group": []
-                              }
+                            "tags": []
+                        }
+                    },
+                    "code": {
+                        "code": "function decodeThingerUplink(thingerData) {\n    // 0. If data has already been decoded, we will return it\n    if (thingerData.decodedPayload) return thingerData.decodedPayload;\n    \n    // 1. Extract and Validate Input\n    // We need 'payload' (hex string) and 'fPort' (integer)\n    const hexPayload = thingerData.payload || \"\";\n    const port = thingerData.fPort || 1;\n\n    // 2. Convert Hex String to Byte Array\n    const bytes = [];\n    for (let i = 0; i < hexPayload.length; i += 2) {\n        bytes.push(parseInt(hexPayload.substr(i, 2), 16));\n    }\n\n    // 3. Dynamic Function Detection and Execution\n    \n    // CASE A: (The Things Stack v3)\n    if (typeof decodeUplink === 'function') {\n        try {\n            const input = {\n                bytes: bytes,\n                fPort: port\n            };\n            var result = decodeUplink(input);\n            \n            if (result.data) return result.data;\n\n            return result; \n        } catch (e) {\n            console.error(\"Error inside decodeUplink:\", e);\n            throw e;\n        }\n    }\n\n    // CASE B: Legacy TTN (v2)\n    else if (typeof Decoder === 'function') {\n        try {\n            return Decoder(bytes, port);\n        } catch (e) {\n            console.error(\"Error inside Decoder:\", e);\n            throw e;\n        }\n    }\n\n    // CASE C: No decoder found\n    else {\n        throw new Error(\"No compatible TTN decoder function (decodeUplink or Decoder) found in scope.\");\n    }\n}\n\n\n// TTN decoder\nvar lrs20310_events = ['heartbeat', 'rsvd', 'water_leak_alert', 'cable_break_alert'];\n\nfunction hex2dec(hex) {\n  var dec = hex&0xFFFF;\n  if (dec & 0x8000)\n    dec = -(0x10000-dec)\n  return dec;\n}\n\nfunction decodeUplink(input) {\n  switch (input.fPort) {\n    case 10: // sensor data\n      switch (input.bytes[0]) {\n        case 5:\n          var evt=\"\";\n          for (let i=0; i<8; i++) {\n            if ((0x01<<i)&input.bytes[1]) \n              if (evt===\"\")\n                evt=lrs20310_events[i];\n              else\n                evt=evt+\",\"+lrs20310_events[i];\n          }\n          return {\n            data: {\n              event: evt,\n              battery: input.bytes[2],\n              waterLeakLevel: input.bytes[3],\n            },\n          };\n        default:\n          return {\n            errors: ['unknown sensor type']\n          };\n      }\n      break;\n    case 8: // version\n      var ver = input.bytes[0]+\".\"+(\"00\"+input.bytes[1]).slice(-2)+\".\"+(\"000\"+(input.bytes[2]<<8|input.bytes[3])).slice(-3);    \n      return {\n        data: {\n          firmwareVersion: ver,\n        }\n      };\n    case 12: // device settings\n      switch (input.bytes[0]) {\n        case 5:\n          return {\n            data: {\n              dataUploadInterval: hex2dec(input.bytes[1]<<8|input.bytes[2]),\n              numAdditionalUploads: input.bytes[4],\n              additionalUploadsInterval: input.bytes[5],\n            }\n          };\n        default:\n          return {\n            errors: ['unknown sensor type']\n          }\n      }\n      case 13: // threshold settings\n      switch (input.bytes[0]) {\n        case 5:\n          return {\n            data: {\n              waterLeakAlertThreshold: input.bytes[1],\n            }\n          }\n        default:\n          return {\n            errors: ['unknown sensor type']\n          }\n      }\n    default:\n      return {\n        errors: ['unknown FPort'],\n      };\n  }\n}\n",
+                        "environment": "javascript",
+                        "storage": "",
+                        "version": "1.0"
+                    },
+                    "properties": {
+                        "uplink": {
+                            "data": {
+                                "payload": "{{payload}}",
+                                "payload_function": "",
+                                "payload_type": "source_payload",
+                                "resource": "uplink",
+                                "source": "resource",
+                                "update": "events"
                             },
-                            "color": "#27ae60",
-                            "name": "Battery",
-                            "source": "bucket",
-                            "timespan": {
-                              "magnitude": "day",
-                              "mode": "relative",
-                              "period": "latest",
-                              "value": 7
-                            }
-                          }
-                        ],
-                        "type": "chart"
-                      },
-                      {
-                        "layout": {
-                          "col": 0,
-                          "row": 18,
-                          "sizeX": 6,
-                          "sizeY": 10
-                        },
-                        "panel": {
-                          "color": "#ffffff",
-                          "currentColor": "#ffffff",
-                          "showOffline": {
-                            "type": "none"
-                          },
-                          "title": "Event Log"
-                        },
-                        "properties": {
-                          "source": "code",
-                          "template": "<div style=\"width:100%; height:100%; overflow-y:auto\">\n  <table class=\"table table-striped table-condensed\">\n    <thead>\n      <tr>\n        <th>Date</th>\n        <th>Event</th>\n        <th>Water Leak Level</th>\n        <th>Battery (%)</th>\n      </tr>\n    </thead>\n    <tbody>\n      <tr ng-repeat=\"entry in value\" ng-class=\"{'danger': entry.event && entry.event.indexOf('alert') >= 0}\">\n        <td>{{ entry.ts | date:'medium' }}</td>\n        <td><strong>{{ entry.event || '—' }}</strong></td>\n        <td>{{ entry.waterLeakLevel || '—' }}</td>\n        <td>{{ entry.battery || '—' }}</td>\n      </tr>\n    </tbody>\n  </table>\n</div>"
-                        },
-                        "sources": [
-                          {
-                            "aggregation": {},
-                            "bucket": {
-                              "backend": "mongodb",
-                              "id": "device_data",
-                              "mapping": "ts",
-                              "tags": {
-                                "device": [],
-                                "group": []
-                              }
+                            "default": {
+                                "source": "value"
                             },
-                            "color": "#1abc9c",
-                            "name": "timestamp",
-                            "source": "bucket",
-                            "timespan": {
-                              "magnitude": "day",
-                              "mode": "relative",
-                              "period": "latest",
-                              "value": 7
+                            "enabled": true
+                        }
+                    }
+                },
+                "_resources": {
+                    "properties": [
+                        {
+                            "property": "dashboard",
+                            "value": {
+                                "name": "lrs20310",
+                                "placeholders": {
+                                    "sources": []
+                                },
+                                "tabs": [
+                                    {
+                                        "name": "Main",
+                                        "widgets": [
+                                            {
+                                                "layout": {
+                                                    "col": 0,
+                                                    "row": 0,
+                                                    "sizeX": 2,
+                                                    "sizeY": 6
+                                                },
+                                                "panel": {
+                                                    "color": "#ffffff",
+                                                    "currentColor": "#ffffff",
+                                                    "showOffline": {
+                                                        "type": "none"
+                                                    },
+                                                    "title": "Water Leak Level"
+                                                },
+                                                "properties": {
+                                                    "color": "#3498db",
+                                                    "max": 255,
+                                                    "min": 0,
+                                                    "unit": "Level"
+                                                },
+                                                "sources": [
+                                                    {
+                                                        "bucket": {
+                                                            "backend": "mongodb",
+                                                            "id": "arwin_technology_lrs20310_data",
+                                                            "mapping": "waterLeakLevel",
+                                                            "tags": {
+                                                                "device": [],
+                                                                "group": []
+                                                            }
+                                                        },
+                                                        "color": "#3498db",
+                                                        "name": "Water Leak Level",
+                                                        "source": "bucket",
+                                                        "timespan": {
+                                                            "mode": "latest"
+                                                        }
+                                                    }
+                                                ],
+                                                "type": "donutchart"
+                                            },
+                                            {
+                                                "layout": {
+                                                    "col": 2,
+                                                    "row": 0,
+                                                    "sizeX": 2,
+                                                    "sizeY": 6
+                                                },
+                                                "panel": {
+                                                    "color": "#ffffff",
+                                                    "currentColor": "#ffffff",
+                                                    "showOffline": {
+                                                        "type": "none"
+                                                    },
+                                                    "title": "Battery Level"
+                                                },
+                                                "properties": {
+                                                    "color": "#27ae60",
+                                                    "max": 100,
+                                                    "min": 0,
+                                                    "unit": "%"
+                                                },
+                                                "sources": [
+                                                    {
+                                                        "bucket": {
+                                                            "backend": "mongodb",
+                                                            "id": "arwin_technology_lrs20310_data",
+                                                            "mapping": "battery",
+                                                            "tags": {
+                                                                "device": [],
+                                                                "group": []
+                                                            }
+                                                        },
+                                                        "color": "#27ae60",
+                                                        "name": "Battery",
+                                                        "source": "bucket",
+                                                        "timespan": {
+                                                            "mode": "latest"
+                                                        }
+                                                    }
+                                                ],
+                                                "type": "donutchart"
+                                            },
+                                            {
+                                                "layout": {
+                                                    "col": 4,
+                                                    "row": 0,
+                                                    "sizeX": 2,
+                                                    "sizeY": 6
+                                                },
+                                                "panel": {
+                                                    "color": "#ffffff",
+                                                    "currentColor": "#ffffff",
+                                                    "showOffline": {
+                                                        "type": "none"
+                                                    },
+                                                    "title": "Current Event Status"
+                                                },
+                                                "properties": {
+                                                    "source": "code",
+                                                    "template": "<div style=\"width:100%; height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; font-size: 18px; padding:20px; text-align:center;\">\n  <div ng-if=\"value && value.length > 0\" style=\"width:100%;\">\n    <div ng-repeat=\"entry in value | limitTo:1\" style=\"padding:10px; border-radius:8px; background-color:#ecf0f1;\">\n      <div style=\"font-weight:bold; margin-bottom:10px; color:#34495e;\">Latest Event</div>\n      <div ng-if=\"entry.event\" style=\"font-size:24px; font-weight:bold; margin:10px 0; color: {{ entry.event.indexOf('alert') >= 0 ? '#e74c3c' : '#2ecc71' }};\">\n        {{ entry.event }}\n      </div>\n      <div ng-if=\"!entry.event\" style=\"font-size:20px; color:#95a5a6;\">No event data</div>\n      <div style=\"font-size:12px; color:#7f8c8d; margin-top:10px;\">{{ entry.ts | date:'medium' }}</div>\n    </div>\n  </div>\n  <div ng-if=\"!value || value.length === 0\" style=\"color:#95a5a6;\">\n    No data available\n  </div>\n</div>"
+                                                },
+                                                "sources": [
+                                                    {
+                                                        "aggregation": {},
+                                                        "bucket": {
+                                                            "backend": "mongodb",
+                                                            "id": "arwin_technology_lrs20310_data",
+                                                            "mapping": "ts",
+                                                            "tags": {
+                                                                "device": [],
+                                                                "group": []
+                                                            }
+                                                        },
+                                                        "color": "#1abc9c",
+                                                        "name": "timestamp",
+                                                        "source": "bucket",
+                                                        "timespan": {
+                                                            "magnitude": "hour",
+                                                            "mode": "relative",
+                                                            "period": "latest",
+                                                            "value": 1
+                                                        }
+                                                    },
+                                                    {
+                                                        "aggregation": {},
+                                                        "bucket": {
+                                                            "backend": "mongodb",
+                                                            "id": "arwin_technology_lrs20310_data",
+                                                            "mapping": "event",
+                                                            "tags": {
+                                                                "device": [],
+                                                                "group": []
+                                                            }
+                                                        },
+                                                        "color": "#e74c3c",
+                                                        "name": "event",
+                                                        "source": "bucket",
+                                                        "timespan": {
+                                                            "magnitude": "hour",
+                                                            "mode": "relative",
+                                                            "period": "latest",
+                                                            "value": 1
+                                                        }
+                                                    }
+                                                ],
+                                                "type": "html_time"
+                                            },
+                                            {
+                                                "layout": {
+                                                    "col": 0,
+                                                    "row": 6,
+                                                    "sizeX": 4,
+                                                    "sizeY": 12
+                                                },
+                                                "panel": {
+                                                    "color": "#ffffff",
+                                                    "currentColor": "#ffffff",
+                                                    "showOffline": {
+                                                        "type": "none"
+                                                    },
+                                                    "title": "Water Leak Level History"
+                                                },
+                                                "properties": {
+                                                    "axis": true,
+                                                    "fill": false,
+                                                    "legend": true,
+                                                    "multiple_axes": false
+                                                },
+                                                "sources": [
+                                                    {
+                                                        "bucket": {
+                                                            "backend": "mongodb",
+                                                            "id": "arwin_technology_lrs20310_data",
+                                                            "mapping": "waterLeakLevel",
+                                                            "tags": {
+                                                                "device": [],
+                                                                "group": []
+                                                            }
+                                                        },
+                                                        "color": "#3498db",
+                                                        "name": "Water Leak Level",
+                                                        "source": "bucket",
+                                                        "timespan": {
+                                                            "magnitude": "day",
+                                                            "mode": "relative",
+                                                            "period": "latest",
+                                                            "value": 7
+                                                        }
+                                                    }
+                                                ],
+                                                "type": "chart"
+                                            },
+                                            {
+                                                "layout": {
+                                                    "col": 4,
+                                                    "row": 6,
+                                                    "sizeX": 2,
+                                                    "sizeY": 12
+                                                },
+                                                "panel": {
+                                                    "color": "#ffffff",
+                                                    "currentColor": "#ffffff",
+                                                    "showOffline": {
+                                                        "type": "none"
+                                                    },
+                                                    "title": "Battery History"
+                                                },
+                                                "properties": {
+                                                    "axis": true,
+                                                    "fill": false,
+                                                    "legend": true,
+                                                    "multiple_axes": false
+                                                },
+                                                "sources": [
+                                                    {
+                                                        "bucket": {
+                                                            "backend": "mongodb",
+                                                            "id": "arwin_technology_lrs20310_data",
+                                                            "mapping": "battery",
+                                                            "tags": {
+                                                                "device": [],
+                                                                "group": []
+                                                            }
+                                                        },
+                                                        "color": "#27ae60",
+                                                        "name": "Battery",
+                                                        "source": "bucket",
+                                                        "timespan": {
+                                                            "magnitude": "day",
+                                                            "mode": "relative",
+                                                            "period": "latest",
+                                                            "value": 7
+                                                        }
+                                                    }
+                                                ],
+                                                "type": "chart"
+                                            },
+                                            {
+                                                "layout": {
+                                                    "col": 0,
+                                                    "row": 18,
+                                                    "sizeX": 6,
+                                                    "sizeY": 10
+                                                },
+                                                "panel": {
+                                                    "color": "#ffffff",
+                                                    "currentColor": "#ffffff",
+                                                    "showOffline": {
+                                                        "type": "none"
+                                                    },
+                                                    "title": "Event Log"
+                                                },
+                                                "properties": {
+                                                    "source": "code",
+                                                    "template": "<div style=\"width:100%; height:100%; overflow-y:auto\">\n  <table class=\"table table-striped table-condensed\">\n    <thead>\n      <tr>\n        <th>Date</th>\n        <th>Event</th>\n        <th>Water Leak Level</th>\n        <th>Battery (%)</th>\n      </tr>\n    </thead>\n    <tbody>\n      <tr ng-repeat=\"entry in value\" ng-class=\"{'danger': entry.event && entry.event.indexOf('alert') >= 0}\">\n        <td>{{ entry.ts | date:'medium' }}</td>\n        <td><strong>{{ entry.event || '—' }}</strong></td>\n        <td>{{ entry.waterLeakLevel || '—' }}</td>\n        <td>{{ entry.battery || '—' }}</td>\n      </tr>\n    </tbody>\n  </table>\n</div>"
+                                                },
+                                                "sources": [
+                                                    {
+                                                        "aggregation": {},
+                                                        "bucket": {
+                                                            "backend": "mongodb",
+                                                            "id": "arwin_technology_lrs20310_data",
+                                                            "mapping": "ts",
+                                                            "tags": {
+                                                                "device": [],
+                                                                "group": []
+                                                            }
+                                                        },
+                                                        "color": "#1abc9c",
+                                                        "name": "timestamp",
+                                                        "source": "bucket",
+                                                        "timespan": {
+                                                            "magnitude": "day",
+                                                            "mode": "relative",
+                                                            "period": "latest",
+                                                            "value": 7
+                                                        }
+                                                    },
+                                                    {
+                                                        "aggregation": {},
+                                                        "bucket": {
+                                                            "backend": "mongodb",
+                                                            "id": "arwin_technology_lrs20310_data",
+                                                            "mapping": "event",
+                                                            "tags": {
+                                                                "device": [],
+                                                                "group": []
+                                                            }
+                                                        },
+                                                        "color": "#e74c3c",
+                                                        "name": "event",
+                                                        "source": "bucket",
+                                                        "timespan": {
+                                                            "magnitude": "day",
+                                                            "mode": "relative",
+                                                            "period": "latest",
+                                                            "value": 7
+                                                        }
+                                                    },
+                                                    {
+                                                        "aggregation": {},
+                                                        "bucket": {
+                                                            "backend": "mongodb",
+                                                            "id": "arwin_technology_lrs20310_data",
+                                                            "mapping": "waterLeakLevel",
+                                                            "tags": {
+                                                                "device": [],
+                                                                "group": []
+                                                            }
+                                                        },
+                                                        "color": "#3498db",
+                                                        "name": "waterLeakLevel",
+                                                        "source": "bucket",
+                                                        "timespan": {
+                                                            "magnitude": "day",
+                                                            "mode": "relative",
+                                                            "period": "latest",
+                                                            "value": 7
+                                                        }
+                                                    },
+                                                    {
+                                                        "aggregation": {},
+                                                        "bucket": {
+                                                            "backend": "mongodb",
+                                                            "id": "arwin_technology_lrs20310_data",
+                                                            "mapping": "battery",
+                                                            "tags": {
+                                                                "device": [],
+                                                                "group": []
+                                                            }
+                                                        },
+                                                        "color": "#27ae60",
+                                                        "name": "battery",
+                                                        "source": "bucket",
+                                                        "timespan": {
+                                                            "magnitude": "day",
+                                                            "mode": "relative",
+                                                            "period": "latest",
+                                                            "value": 7
+                                                        }
+                                                    }
+                                                ],
+                                                "type": "html_time"
+                                            }
+                                        ]
+                                    }
+                                ]
                             }
-                          },
-                          {
-                            "aggregation": {},
-                            "bucket": {
-                              "backend": "mongodb",
-                              "id": "device_data",
-                              "mapping": "event",
-                              "tags": {
-                                "device": [],
-                                "group": []
-                              }
-                            },
-                            "color": "#e74c3c",
-                            "name": "event",
-                            "source": "bucket",
-                            "timespan": {
-                              "magnitude": "day",
-                              "mode": "relative",
-                              "period": "latest",
-                              "value": 7
-                            }
-                          },
-                          {
-                            "aggregation": {},
-                            "bucket": {
-                              "backend": "mongodb",
-                              "id": "device_data",
-                              "mapping": "waterLeakLevel",
-                              "tags": {
-                                "device": [],
-                                "group": []
-                              }
-                            },
-                            "color": "#3498db",
-                            "name": "waterLeakLevel",
-                            "source": "bucket",
-                            "timespan": {
-                              "magnitude": "day",
-                              "mode": "relative",
-                              "period": "latest",
-                              "value": 7
-                            }
-                          },
-                          {
-                            "aggregation": {},
-                            "bucket": {
-                              "backend": "mongodb",
-                              "id": "device_data",
-                              "mapping": "battery",
-                              "tags": {
-                                "device": [],
-                                "group": []
-                              }
-                            },
-                            "color": "#27ae60",
-                            "name": "battery",
-                            "source": "bucket",
-                            "timespan": {
-                              "magnitude": "day",
-                              "mode": "relative",
-                              "period": "latest",
-                              "value": 7
-                            }
-                          }
-                        ],
-                        "type": "html_time"
-                      }
+                        }
                     ]
-                  }
-                ]
-              }
+                }
             }
-          ]
-        }
-      }
-    ]
-  }
+        ]
+    }
 }
