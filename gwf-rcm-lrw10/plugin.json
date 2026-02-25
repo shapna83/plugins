@@ -1,7 +1,7 @@
 {
   "name": "gwf_rcm_lrw10",
   "version": "1.0.0",
-  "description": "The GWFcoder radio module RCM-LRW10 from GWF MessSysteme eliminates the need to change meters for the migration of water and gas meters with GWFcoder to an LPWAN network. With simple and quick on-site installation via Plug & Play, no programming is requir",
+  "description": "The GWFcoder RCM-LRW10 is a radio module that connects GWFcoder water and gas meters to LPWAN networks without replacing the meter, enabling remote data transmission with simple plug-and-play installation.",
   "author": "Thinger.io",
   "license": "MIT",
   "repository": {
@@ -11,15 +11,15 @@
   },
   "metadata": {
     "name": "Gwf RCM-LRW10",
-    "description": "The GWFcoder radio module RCM-LRW10 from GWF MessSysteme eliminates the need to change meters for the migration of water and gas meters with GWFcoder to an LPWAN network. With simple and quick on-site installation via Plug & Play, no programming is requir",
-    "image": "assets/rcm-lrw10.jpg",
+    "description": "The GWFcoder RCM-LRW10 is a radio module that connects GWFcoder water and gas meters to LPWAN networks without replacing the meter, enabling remote data transmission with simple plug-and-play installation.",
+    "image": "assets/rcm-lrw10.png",
     "category": "devices",
     "vendor": "gwf"
   },
   "resources": {
     "products": [
       {
-        "description": "The GWFcoder radio module RCM-LRW10 from GWF MessSysteme eliminates the need to change meters for the migration of water and gas meters with GWFcoder to an LPWAN network. With simple and quick on-site installation via Plug & Play, no programming is requir",
+        "description": "The GWFcoder RCM-LRW10 is a radio module that connects GWFcoder water and gas meters to LPWAN networks without replacing the meter, enabling remote data transmission with simple plug-and-play installation.",
         "enabled": true,
         "name": "Gwf RCM-LRW10",
         "product": "gwf_rcm_lrw10",
@@ -60,7 +60,7 @@
                 "mode": "pattern",
                 "pattern": "gwf-rcm-lrw10.*"
               },
-              "enabled": false
+              "enabled": true
             }
           },
           "buckets": {
