@@ -1,0 +1,232 @@
+{
+  "name": "radionode-rn320bth",
+  "version": "1.0.0",
+  "description": "Radionode RN320-BTH device template for Thinger.io",
+  "author": "Your Company",
+  "license": "MIT",
+  "metadata": {
+    "name": "Radionode RN320-BTH",
+    "description": "LoRaWAN Temperature & Humidity Sensor",
+    "category": "devices"
+  },
+  "resources": {
+    "products": [
+      {
+        "enabled": true,
+        "name": "Radionode RN320-BTH",
+        "product": "radionode_rn320bth",
+        "profile": {
+          "buckets": {
+            "rn320bt-data": {
+              "backend": "mongodb",
+              "data": {
+                "payload": "{{payload}}",
+                "resource_stream": "uplink",
+                "source": "resource_stream"
+              },
+              "enabled": true,
+              "tags": []
+            },
+            "rn320_data": {
+              "backend": "mongodb",
+              "data": {
+                "payload": "{{payload}}",
+                "resource_stream": "uplink",
+                "source": "resource_stream"
+              },
+              "enabled": true,
+              "tags": []
+            }
+          },
+          "properties": {
+            "uplink": {
+              "enabled": true,
+              "default": {
+                "source": "value"
+              }
+            }
+          }
+        },
+        "_resources": {
+          "properties": [
+            {
+              "property": "dashboard",
+              "value": {
+                "controls": {
+                  "aggregation": {
+                    "allowed": ["30m", "12h", "1d", "1h"],
+                    "auto": true,
+                    "period": "1m"
+                  },
+                  "timespan": {
+                    "magnitude": "minute",
+                    "mode": "relative",
+                    "period": "latest",
+                    "value": 30
+                  }
+                },
+                "functions": "function valuetopercentage(value){ var min=3.0; var max=3.6; var percent=((value-min)/(max-min))*100; if(percent>100)percent=100; if(percent<0)percent=0; return percent; }",
+                "name": "RN320-BTH",
+                "placeholders": {
+                  "sources": []
+                },
+                "properties": {
+                  "template": true
+                },
+                "tabs": [
+                  {
+                    "icon": "fas fa-tachometer-alt",
+                    "widgets": [
+                      {
+                        "layout": { "col": 0, "row": 0, "sizeX": 3, "sizeY": 6 },
+                        "panel": { "title": "Historic Temperature" },
+                        "properties": {
+                          "axis": true,
+                          "fill": true,
+                          "legend": false
+                        },
+                        "sources": [
+                          {
+                            "aggregation": { "period": "configurable", "type": "mean" },
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "rn320bt-data",
+                              "mapping": "temperature"
+                            },
+                            "source": "bucket",
+                            "timespan": {
+                              "magnitude": "day",
+                              "mode": "configurable",
+                              "period": "latest",
+                              "value": 5
+                            }
+                          }
+                        ],
+                        "type": "chart"
+                      },
+                      {
+                        "layout": { "col": 0, "row": 6, "sizeX": 3, "sizeY": 6 },
+                        "panel": { "title": "Historic Humidity" },
+                        "properties": {
+                          "axis": true,
+                          "fill": true,
+                          "legend": false,
+                          "yaxis": { "min": 0 }
+                        },
+                        "sources": [
+                          {
+                            "aggregation": { "period": "configurable", "type": "mean" },
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "rn320bt-data",
+                              "mapping": "humidity"
+                            },
+                            "source": "bucket",
+                            "timespan": {
+                              "magnitude": "hour",
+                              "mode": "configurable",
+                              "period": "latest",
+                              "value": 12
+                            }
+                          }
+                        ],
+                        "type": "chart"
+                      },
+                      {
+                        "layout": { "col": 3, "row": 0, "sizeX": 1, "sizeY": 6 },
+                        "panel": { "title": "Temperature" },
+                        "properties": {
+                          "color": "#ff0000",
+                          "max": 100,
+                          "min": 0,
+                          "unit": "°C"
+                        },
+                        "sources": [
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "rn320bt-data",
+                              "mapping": "temperature"
+                            },
+                            "source": "bucket",
+                            "timespan": { "mode": "latest" }
+                          }
+                        ],
+                        "type": "donutchart"
+                      },
+                      {
+                        "layout": { "col": 3, "row": 6, "sizeX": 1, "sizeY": 6 },
+                        "panel": { "title": "Humidity" },
+                        "properties": {
+                          "color": "#0000ff",
+                          "max": 100,
+                          "min": 0,
+                          "unit": "%RH"
+                        },
+                        "sources": [
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "rn320bt-data",
+                              "mapping": "humidity"
+                            },
+                            "source": "bucket",
+                            "timespan": { "mode": "latest" }
+                          }
+                        ],
+                        "type": "donutchart"
+                      },
+                      {
+                        "layout": { "col": 4, "row": 9, "sizeX": 1, "sizeY": 3 },
+                        "panel": { "title": "Battery" },
+                        "properties": {
+                          "icon": "fas fa-battery-full",
+                          "max": 100,
+                          "min": 0,
+                          "unit": "%"
+                        },
+                        "sources": [
+                          {
+                            "device_property": {
+                              "device": "rn320-bth_AC1F09FFFE0AA845",
+                              "mapping": "volt",
+                              "property": "status"
+                            },
+                            "processing": {
+                              "input": "valuetopercentage"
+                            },
+                            "source": "device_property"
+                          }
+                        ],
+                        "type": "progressbar"
+                      },
+                      {
+                        "layout": { "col": 5, "row": 9, "sizeX": 1, "sizeY": 3 },
+                        "panel": { "title": "Voltage" },
+                        "properties": {
+                          "decimal_places": 2,
+                          "unit": "V"
+                        },
+                        "sources": [
+                          {
+                            "device_property": {
+                              "device": "rn320-bth_AC1F09FFFE0AA845",
+                              "mapping": "volt",
+                              "property": "status"
+                            },
+                            "source": "device_property"
+                          }
+                        ],
+                        "type": "text"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

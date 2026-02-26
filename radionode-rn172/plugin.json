@@ -1,0 +1,159 @@
+{
+  "name": "radionode-rn172",
+  "version": "1.0.0",
+  "description": "Radionode RN172 device template for Thinger.io",
+  "author": "Your Company",
+  "license": "MIT",
+  "metadata": {
+    "name": "Radionode RN172",
+    "description": "LoRaWAN Temperature & Humidity Sensor",
+    "category": "devices"
+  },
+  "resources": {
+    "products": [
+      {
+        "enabled": true,
+        "name": "Radionode RN172",
+        "product": "radionode_rn172",
+        "profile": {
+
+          "buckets": {
+            "RN172_data": {
+              "backend": "mongodb",
+              "data": {
+                "payload": "{{payload}}",
+                "resource_stream": "uplink",
+                "source": "resource_stream"
+              },
+              "enabled": true,
+              "tags": []
+            }
+          },
+
+          "properties": {
+            "uplink": {
+              "enabled": true,
+              "default": {
+                "source": "value"
+              }
+            }
+          }
+
+        },
+
+        "_resources": {
+          "properties": [
+            {
+              "property": "dashboard",
+              "value": {
+                "name": "Temp and Humidity",
+                "tabs": [
+                  {
+                    "icon": "fas fa-tachometer-alt",
+                    "name": "Temp and Humidity",
+                    "widgets": [
+                      {
+                        "layout": {
+                          "col": 0,
+                          "row": 0,
+                          "sizeX": 3,
+                          "sizeY": 9
+                        },
+                        "panel": {
+                          "color": "#ffffff",
+                          "currentColor": "#ffffff",
+                          "link": "rn172",
+                          "showOffline": {
+                            "type": "none"
+                          },
+                          "title": "Temperature"
+                        },
+                        "properties": {
+                          "axis": true,
+                          "fill": false,
+                          "legend": false,
+                          "multiple_axes": false
+                        },
+                        "sources": [
+                          {
+                            "aggregation": {},
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "RN172_data",
+                              "mapping": "temperature",
+                              "tags": {
+                                "device": [
+                                  "rn172_44B7D04C7465"
+                                ],
+                                "group": []
+                              }
+                            },
+                            "color": "#1abc9c",
+                            "name": "Source 1",
+                            "source": "bucket",
+                            "timespan": {
+                              "mode": "latest"
+                            }
+                          }
+                        ],
+                        "type": "chart"
+                      },
+                      {
+                        "layout": {
+                          "sizeX": 1,
+                          "sizeY": 5
+                        },
+                        "panel": {
+                          "color": "#ffffff",
+                          "currentColor": "#ffffff",
+                          "link": "rn172",
+                          "showOffline": {
+                            "type": "none"
+                          },
+                          "title": "Humidity"
+                        },
+                        "properties": {
+                          "color": "#1E313E",
+                          "gradient": true,
+                          "max": 100,
+                          "min": 0
+                        },
+                        "sources": [
+                          {
+                            "bucket": {
+                              "backend": "mongodb",
+                              "id": "RN172_data",
+                              "mapping": "humidity",
+                              "tags": {
+                                "device": [
+                                  "rn172_44B7D04C7465"
+                                ],
+                                "group": []
+                              }
+                            },
+                            "color": "#1abc9c",
+                            "name": "Source 1",
+                            "source": "bucket",
+                            "timespan": {
+                              "mode": "latest"
+                            }
+                          }
+                        ],
+                        "type": "gauge"
+                      }
+                    ]
+                  }
+                ],
+                "widgets": [],
+                "placeholders": {
+                  "sources": []
+                }
+              }
+            }
+          ]
+        }
+
+      }
+    ]
+  }
+}
