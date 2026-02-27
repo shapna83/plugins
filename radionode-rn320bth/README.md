@@ -31,33 +31,44 @@ A LoRaWAN server is required to communicate the Radionode sensors into Thinger.i
 *   The Things Stack
 *   LORIOT
 *   ChirpStack
-Alongside, the corresponding plugin for the selected LoRaWAN server needs to be installed in your Thinger.io instance.
-
 
 ## Get Started
+
+### **Configuration**
+
+1. Provide device identifiers and communication parameters.
+2. Configure LoRaWAN options as applicable.
+3. Save and enable the plugin.
 
 ### Installation
 
 Look for the plugin in the [Thinger.io Plugin Marketplace](https://acme.thinger.io/console/plugins/marketplace) and install it in your Thinger.io instance.
  Once the plugin is installed a new Product will be created for this device.
 
- !['thinger.io.png'](assets/thinger.io.png)
+ ![Radionode RN320bth Plugin Installation into Thinger.io](assets/thinger-rn320bth.png)
 
-### Configuration
+ ### Configuration
 
 The Product is already preconfigured, check that the auto provision prefix matches the one selected in your LoRaWAN server plugin in Thinger.io, or change it to your desire.
 
-### Usage
+### **Usage**
 
-Start sending uplinks for autoprovisioning devices and buckets.
+Once configured, the RN320-BTH data becomes available as live resources within Thinger.io. Users can:
 
-This product also provides a predefined dashboard.
+* Instantly view measurements through dashboards, including real-time temperature, humidity, and battery status.
+* Store time-series data in buckets for historical analysis.
+* Create alerts for thresholds or anomalies.
+* Send downlink commands to the device (change transmission interval, retrieve stored records, request device configuration).
+* Integrate measurements with automation workflows and external services.
+* Export data to CSV for analysis in external tools.
 
 ## Additional Resources
 
 Radionode RN320-BTH resources can be found at
 
-- [Radionode RN320 Product Page](https://en.radionode365.com/kr/product/product_view.php?idx=102&part_idx=1)
-
+* [Radionode RN320 Product Page](https://en.radionode365.com/kr/product/product_view.php?idx=102&part_idx=1)
+* [Thinger.io LoRaWAN Documentation](https://docs.thinger.io/lpwan)
+* [Thinger.io Dashboards Guide](https://docs.thinger.io/dashboards)
+* [Thinger.io Community Forum](https://community.thinger.io/)
 
 

@@ -35,20 +35,28 @@ Alongside, the corresponding plugin HTTP Plugin needs to be installed in your Th
 Look for the HTTP plugin in the [Thinger.io Plugin Marketplace](https://acme.thinger.io/console/plugins/marketplace) and install it in your Thinger.io instance.
  Once the plugin is installed a new Product will be created for this device.
 
- !['thinger_rn172.png'](assets/thinger_rn172.png)
+ ![Radionode RN172 Plugin Installation into Thinger.io](assets/thinger-rn172.png)
 
 ### Configuration
 
 The Product is already preconfigured, check that the auto provision prefix matches the plugin in Thinger.io.
 
-### Usage
+### **Usage**
 
-Start sending uplinks for autoprovisioning devices and buckets.
+Once configured, the RN320-BTH data becomes available as live resources within Thinger.io. Users can:
 
-This product also provides a predefined dashboard.
+* Instantly view measurements through dashboards, including real-time temperature, humidity, and battery status.
+* Store time-series data in buckets for historical analysis.
+* Create alerts for thresholds or anomalies.
+* Send downlink commands to the device (change transmission interval, retrieve stored records, request device configuration).
+* Integrate measurements with automation workflows and external services.
+* Export data to CSV for analysis in external tools.
 
 ## Additional Resources
 
 Radionode RN172Plus resources can be found at
 
-- [Radionode RN172Series Product Page](https://en.radionode365.com/kr/product/product_view.php?idx=111&part_idx=1)
+* [Radionode RN172Series Product Page](https://en.radionode365.com/kr/product/product_view.php?idx=111&part_idx=1)
+* [Thinger.io LoRaWAN Documentation](https://docs.thinger.io/lpwan)
+* [Thinger.io Dashboards Guide](https://docs.thinger.io/dashboards)
+* [Thinger.io Community Forum](https://community.thinger.io/)
